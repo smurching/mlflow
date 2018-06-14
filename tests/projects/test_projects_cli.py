@@ -25,3 +25,11 @@ def test_run_git():
             res = invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "-P", "alpha=0.5"])
             assert "python train.py 0.5 0.1" in res.output
             _assert_succeeded(res.output)
+    with TempDir() as tmp:
+        with update_temp_env({mlflow.tracking._TRACKING_URI_ENV_VAR: tmp.path()}):
+            res = invoke_cli_runner(
+                cli.run,
+                ["https://gitlab.com/smurching-dev/mlflow-example", "-e", "python_spark_prog",
+                 "--git-username", "smurching-dev", "--git-password", "temppassword"])
+            # assert "python train.py 0.5 0.1" in res.output
+            _assert_succeeded(res.output)
