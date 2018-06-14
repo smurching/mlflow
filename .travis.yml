@@ -26,6 +26,7 @@ install:
   - pip install --upgrade pip
   - pip install .
   - pip install -r dev-requirements.txt
+  - chown travis ~/.git-credential-cache
 script:
   - git --version
   - whoami
