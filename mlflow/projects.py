@@ -355,6 +355,9 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
         raise ExecutionException("Either both or neither of git_username and git_password must be "
                                  "specified.")
     if git_username is not None:
+        credential_cache_dir = os.path.expanduser("~/.git-credential-cache")
+        if not os.path.exists(credential_cache_dir):
+            os.makedirs(credential_cache_dir)
         git_credentials = "url=%s\nusername=%s\npassword=%s" % (uri, git_username, git_password)
         repo.git.config("credential.helper", "cache")
         process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
