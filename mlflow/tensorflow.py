@@ -15,7 +15,8 @@ class _TFWrapper(object):
         self._signature_def_name = signature_def_name
 
     def predict(self, df):
-        pass
+        graph = tf.Graph()
+        return graph, df
         # graph = tf.Graph()
         # with tf.Session(graph=graph) as sess:
         #     print(tf.saved_model.tag_constants.SERVING)
