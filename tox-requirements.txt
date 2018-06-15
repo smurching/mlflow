@@ -1,5 +1,5 @@
 # Test reqs
-prospector[with_pyroma]==0.12.7
+prospector[with_pyroma]
 
 codecov
 mock==2.0.0
