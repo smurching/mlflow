@@ -17,7 +17,7 @@ from mlflow.entities.source_type import SourceType
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils import env
+from mlflow.utils import env, string_utils
 
 
 _RUN_NAME_ENV_VAR = "MLFLOW_RUN_NAME"
@@ -296,7 +296,7 @@ def log_param(key, value):
     :param key: Parameter name (string)
     :param value: Parameter value (string)
     """  
-    _get_or_start_run().log_param(Param(key, str(value)))
+    _get_or_start_run().log_param(Param(key, string_utils.to_text(value)))
 
 
 def log_metric(key, value):

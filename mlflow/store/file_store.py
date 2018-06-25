@@ -12,6 +12,7 @@ from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_status import RunStatus
 from mlflow.store.abstract_store import AbstractStore
 
+from mlflow.utils import string_utils
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists,
                                      write_yaml, read_yaml, find, read_file,
@@ -233,7 +234,7 @@ class FileStore(AbstractStore):
         if len(param_data) > 1:
             raise Exception("Unexpected data for param '%s'. Param recorded more than once"
                             % param_name)
-        return Param(param_name, str(param_data[0].strip()))
+        return Param(param_name, string_utils.to_text(param_data[0].strip()))
 
     def get_param(self, run_uuid, param_name):
         parent_path, param_files = self._get_run_files(run_uuid, "param")

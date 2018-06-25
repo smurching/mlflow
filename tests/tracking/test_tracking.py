@@ -122,11 +122,11 @@ def test_log_param():
         with active_run:
             mlflow.log_param("name_1", "a")
             mlflow.log_param(u"中文", "b")
-            mlflow.log_param("name_1", "c")
+            mlflow.log_param("name_1", u"中文")
         finished_run = active_run.store.get_run(run_uuid)
         # Validate params
         assert len(finished_run.data.params) == 2
-        expected_pairs = {"name_1": "c", u"中文": "b"}
+        expected_pairs = {"name_1": u"中文", u"中文": "b"}
         for param in finished_run.data.params:
             assert expected_pairs[param.key] == param.value
 
