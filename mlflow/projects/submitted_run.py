@@ -23,7 +23,9 @@ def monitor_run(pollable_run, active_run):
     signal.signal(signal.SIGTERM, handler)
     signal.signal(signal.SIGINT, handler)
     # Perform any necessary setup for the pollable run, then wait on it to finish
+    eprint("=== Performing setup in PID %s ===" % os.getpid())
     pollable_run.setup()
+    eprint("=== Waiting on pollable in PID %s ===" % os.getpid())
     run_succeeded = pollable_run.wait()
     if run_succeeded:
         eprint("=== Run (%s) succeeded ===" % pollable_run.describe())
@@ -71,7 +73,13 @@ class SubmittedRun(object):
         Databricks), we may wait until the remote job completes rather than until the MLflow run
         completes.
         """
+        import os
+        eprint("=== Waiting on subprocess with PID %s from parent %s"
+               " ===" % (self._monitoring_subprocess.pid, os.getpid()))
+        eprint("=== Current exit status %s ===" % self._monitoring_subprocess.poll())
         self._monitoring_subprocess.join()
+        eprint("=== In parent process %s, done waiting on %s"
+               % (self._monitoring_subprocess.pid, os.getpid()))
 
     def cancel(self):
         """
