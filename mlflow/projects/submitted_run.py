@@ -76,7 +76,6 @@ class SubmittedRun(object):
         import os
         eprint("=== Waiting on subprocess with PID %s from parent %s"
                " ===" % (self._monitoring_subprocess.pid, os.getpid()))
-        eprint("=== Current exit status %s ===" % self._monitoring_subprocess.poll())
         self._monitoring_subprocess.join()
         eprint("=== In parent process %s, done waiting on %s"
                % (self._monitoring_subprocess.pid, os.getpid()))
