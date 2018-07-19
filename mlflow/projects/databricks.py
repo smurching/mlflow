@@ -147,6 +147,7 @@ def monitor_databricks(databricks_run_id, sleep_interval=30):
     Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
     run's status every `sleep_interval` seconds.
     """
+    eprint("=== Debugging: In monitor_databricks ===")
     result_state = _get_run_result_state(databricks_run_id)
     eprint("=== Debugging: got run result state %s ===" % result_state)
     while result_state is None:
