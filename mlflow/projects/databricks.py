@@ -148,7 +148,9 @@ def monitor_databricks(databricks_run_id, sleep_interval=30):
     run's status every `sleep_interval` seconds.
     """
     result_state = _get_run_result_state(databricks_run_id)
+    eprint("=== Debugging: got run result state %s ===" % result_state)
     while result_state is None:
         time.sleep(sleep_interval)
         result_state = _get_run_result_state(databricks_run_id)
+        eprint("=== Debugging (in while loop): got run result state %s ===" % result_state)
     return result_state == "SUCCESS"
