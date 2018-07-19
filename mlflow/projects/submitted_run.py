@@ -79,7 +79,7 @@ class SubmittedRun(object):
         will not cancel the run if it has already completed.
         """
         try:
-            self._monitoring_subprocess.terminate()
+            os.kill(self._monitoring_subprocess.pid, signal.SIGTERM)
         except OSError:
             pass
         self._monitoring_subprocess.join()
