@@ -36,8 +36,8 @@ class ExecutionException(Exception):
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-         use_temp_cwd=False, storage_dir=None, block=True):
+         mode=None, cluster_spec=None, db_profile=None, git_username=None, git_password=None,
+         use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
     exp_id = experiment_id or tracking._get_experiment_id()
     if mode is None or mode == "local":
         return _run_local(
@@ -49,7 +49,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
+            experiment_id=exp_id, cluster_spec=cluster_spec, db_profile=db_profile,
+            git_username=git_username,
             git_password=git_password)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -57,8 +58,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        use_temp_cwd=False, storage_dir=None, block=True):
+        mode=None, cluster_spec=None, db_profile=None, git_username=None, git_password=None,
+        use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
     """
     Run an MLflow project from the given URI.
 
@@ -76,6 +77,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param mode: Execution mode for the run. Can be set to "local" or "databricks".
     :param cluster_spec: Path to JSON file describing the cluster to use when launching a run on
                          Databricks.
+    :param db_profile: Name of Databricks CLI profile to use when interacting with Databricks
+                       services (e.g. launching runs on Databricks).
     :param git_username: Username for HTTP(S) authentication with Git.
     :param git_password: Password for HTTP(S) authentication with Git.
     :param use_conda: If True (the default), creates a new Conda environment for the run and
@@ -99,7 +102,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
                              parameters=parameters,
                              experiment_id=experiment_id,
-                             mode=mode, cluster_spec=cluster_spec, git_username=git_username,
+                             mode=mode, cluster_spec=cluster_spec, db_profile=db_profile,
+                             git_username=git_username,
                              git_password=git_password, use_conda=use_conda,
                              use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block)
     if block:
@@ -109,6 +113,10 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
             raise ExecutionException("=== Run (%s) was unsuccessful, had status %s ===" %
                                      (submitted_run_obj.run_id, status))
     return submitted_run_obj
+
+
+def _load_project(work_dir, uri):
+    return Project(_expand_uri(uri), file_utils.read_yaml(work_dir, "MLproject"))
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
@@ -130,7 +138,7 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     # Load the MLproject file
     if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
+    project = _load_project(work_dir, uri)
     return _run_project(
         project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, block)
 
