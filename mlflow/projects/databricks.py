@@ -5,7 +5,7 @@ from six.moves import shlex_quote
 
 from mlflow.entities.source_type import SourceType
 
-from mlflow.projects.pollable_run import DatabricksPollableRun
+from mlflow.projects.pollable_run import PollableRun
 from mlflow.utils import rest_utils
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
@@ -138,11 +138,11 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     return SubmittedRun(remote_run, DatabricksPollableRun(db_run_id))
 
 
-def cancel_databricks(databricks_run_id):
+def _cancel_databricks(databricks_run_id):
     _jobs_runs_cancel(databricks_run_id)
 
 
-def monitor_databricks(databricks_run_id, sleep_interval=30):
+def _monitor_databricks(databricks_run_id, sleep_interval=30):
     """
     Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
     run's status every `sleep_interval` seconds.
@@ -155,3 +155,21 @@ def monitor_databricks(databricks_run_id, sleep_interval=30):
         result_state = _get_run_result_state(databricks_run_id)
         eprint("=== Debugging (in while loop): got run result state %s ===" % result_state)
     return result_state == "SUCCESS"
+
+
+class DatabricksPollableRun(PollableRun):
+    """
+    Instance of PollableRun corresponding to a Databricks Job run launched to run an MLflow project.
+    """
+    def __init__(self, databricks_run_id):
+        super(DatabricksPollableRun, self).__init__()
+        self.databricks_run_id = databricks_run_id
+
+    def wait(self):
+        return _monitor_databricks(self.databricks_run_id)
+
+    def cancel(self):
+        _cancel_databricks(self.databricks_run_id)
+
+    def describe(self):
+        return "Databricks Job run with id: %s" % self.databricks_run_id

@@ -3,7 +3,6 @@ import os
 import subprocess
 
 from mlflow.entities.run_status import RunStatus
-from mlflow.projects import databricks
 
 
 def maybe_set_run_terminated(active_run, status):
@@ -100,21 +99,3 @@ class LocalPollableRun(PollableRun):
 
     def describe(self):
         return "shell command: '%s'" % self.command
-
-
-class DatabricksPollableRun(PollableRun):
-    """
-    Instance of PollableRun corresponding to a Databricks Job run launched to run an MLflow project.
-    """
-    def __init__(self, databricks_run_id):
-        super(DatabricksPollableRun, self).__init__()
-        self.databricks_run_id = databricks_run_id
-
-    def wait(self):
-        return databricks.monitor_databricks(self.databricks_run_id)
-
-    def cancel(self):
-        databricks.cancel_databricks(self.databricks_run_id)
-
-    def describe(self):
-        return "Databricks Job run with id: %s" % self.databricks_run_id
