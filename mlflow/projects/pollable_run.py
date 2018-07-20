@@ -3,6 +3,7 @@ import os
 import subprocess
 
 from mlflow.entities.run_status import RunStatus
+from mlflow.projects import databricks
 
 
 def maybe_set_run_terminated(active_run, status):
@@ -76,11 +77,13 @@ class LocalPollableRun(PollableRun):
         cmd_env.update(self.env_map)
         if self.stream_output:
             return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", self.command],
-                                    cwd=self.work_dir, env=cmd_env, preexec_fn=os.setsid)
+                                    cwd=self.work_dir, env=cmd_env, preexec_fn=os.setsid,
+                                    close_fds=True)
         return subprocess.Popen(
             [os.environ.get("SHELL", "bash"), "-c", self.command],
             cwd=self.work_dir, env=cmd_env, stdout=open(os.devnull, 'wb'),
-            stderr=open(os.devnull, 'wb'), preexec_fn=os.setsid)
+            stderr=open(os.devnull, 'wb'), preexec_fn=os.setsid,
+            close_fds=True)
 
     def setup(self):
         self.command_proc = self._launch_command()
@@ -108,11 +111,9 @@ class DatabricksPollableRun(PollableRun):
         self.databricks_run_id = databricks_run_id
 
     def wait(self):
-        from mlflow.projects import databricks
         return databricks.monitor_databricks(self.databricks_run_id)
 
     def cancel(self):
-        from mlflow.projects import databricks
         databricks.cancel_databricks(self.databricks_run_id)
 
     def describe(self):
