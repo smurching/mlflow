@@ -27,6 +27,8 @@ import mlflow.store.cli
 def cli():
     pass
 
+print("HI FROM SID")
+
 
 @cli.command()
 @click.argument("uri")

@@ -183,6 +183,7 @@ def _log_param():
 
 
 def _set_tag():
+    raise Exception("oops")
     request_message = _get_request_message(SetTag())
     tag = RunTag(request_message.key, request_message.value)
     _get_store().set_tag(request_message.run_uuid, tag)
