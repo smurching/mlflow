@@ -44,6 +44,7 @@ setup(
         'querystring_parser',
         'simplejson',
         'mleap>=0.8.1',
+        'docker>=3.6.0'
     ],
     entry_points='''
         [console_scripts]
