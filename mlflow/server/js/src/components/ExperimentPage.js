@@ -19,6 +19,8 @@ class ExperimentPage extends Component {
     super(props);
     this.onSearch = this.onSearch.bind(this);
     this.getRequestIds = this.getRequestIds.bind(this);
+    // Load state from localstorage & set it
+    ExperimentPage.loadState(props.experimentId).then((state) => this.setState(state));
   }
 
   static propTypes = {
@@ -39,7 +41,7 @@ class ExperimentPage extends Component {
 
   state = ExperimentPage.loadState(this.props.experimentId);
 
-  store = _.cloneDeep(ExperimentPage.defaultState);
+  store = LocalStorageUtils.getStoreForExperiment(this.props.experimentId);
 
   static getStateKey() {
     return "ExperimentPage";
@@ -64,38 +66,37 @@ class ExperimentPage extends Component {
     // TODO state has dependency on props here...
     const store = LocalStorageUtils.getStoreForExperiment(experimentId);
     return store.getItem(ExperimentPage.getStateKey()).then((cachedState) => {
-      console.log("@SID In loadState promise");
       if (cachedState) {
-        // Set state to defaults, overriding with whatever's in local storage (if anything)
-        return this.setState({
-          ..._.cloneDeep(ExperimentPage.defaultState),
+        // Load defaults, override with whatever's in local storage (if anything)
+        const res = {
+          ...ExperimentPage.defaultState,
           ...cachedState,
-        });
+        };
+        console.log("Returning " + JSON.stringify(res));
+        return res;
       }
-      return this.setState(_.cloneDeep(ExperimentPage.defaultState));
+      return _.cloneDeep(ExperimentPage.defaultState);
     });
-
   }
 
-  componentDidUpdate(prevProps) {
-    if (this.props.experimentId !== prevProps.experimentId) {
-      // TODO do something with the return value here?
-      ExperimentPage.loadState(this.props.experimentId);
+  static getDerivedStateFromProps(props, state) {
+    if (props.experimentId !== state.lastExperimentId) {
       const newState = {
-        ...ExperimentPage.loadState(this.props.experimentId),
+        ...ExperimentPage.loadState(props.experimentId),
         getExperimentRequestId: getUUID(),
         searchRunsRequestId: getUUID(),
-        lastExperimentId: this.props.experimentId,
+        lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
-      this.props.dispatch(getExperimentApi(this.props.experimentId, newState.getExperimentRequestId));
-      this.props.dispatch(searchRunsApi(
-        [this.props.experimentId],
+      props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
+      props.dispatch(searchRunsApi(
+        [props.experimentId],
         SearchUtils.parseSearchInput(newState.searchInput),
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
         newState.searchRunsRequestId));
-      this.setState(newState);
+      return newState;
     }
+    return null;
   }
 
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
