@@ -12,6 +12,7 @@ import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
+import LocalStorageUtils from '../utils/LocalStorageUtils';
 
 import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
@@ -81,6 +82,9 @@ class ExperimentView extends Component {
     searchInput: PropTypes.string.isRequired,
   };
 
+  store = LocalStorageUtils.getStoreForExperiment(
+    this.props.experiment.experiment_id, this.props.experiment.creation_time);
+
   defaultState = {
     runsHiddenByExpander: {},
     // By default all runs are expanded. In this state, runs are explicitly expanded or unexpanded.
@@ -110,20 +114,21 @@ class ExperimentView extends Component {
   state = this.loadState();
 
   getStateKey() {
-    return "mlflow-experiment-" + this.props.experiment.id;
+    return "ExperimentView";
   }
 
   setStateWrapper(newState, callback) {
     this.setState(newState, () => {
-      window.localStorage.setItem(this.getStateKey(), JSON.stringify(this.state));
-      if (callback) {
-        callback();
-      }
+      this.store.setItem(this.getStateKey(), this.state).then(() => {
+        if (callback) {
+          callback();
+        }
+      });
     });
   }
 
   loadState() {
-    const cachedState = JSON.parse(window.localStorage.getItem(this.getStateKey()));
+    const cachedState = this.store.getItem(this.getStateKey());
     const runsSelected = this.defaultState.runsSelected;
     if (cachedState) {
       return  {

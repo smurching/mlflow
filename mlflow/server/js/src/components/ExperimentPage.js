@@ -9,6 +9,7 @@ import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
 import _ from "lodash";
 import {SearchUtils} from "../utils/SearchUtils";
+import LocalStorageUtils from "../utils/LocalStorageUtils";
 
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
@@ -38,8 +39,10 @@ class ExperimentPage extends Component {
 
   state = ExperimentPage.loadState(this.props.experimentId);
 
-  static getStateKey(experimentId) {
-    return "mlflow/experimentpage/" + experimentId;
+  store = _.cloneDeep(ExperimentPage.defaultState);
+
+  static getStateKey() {
+    return "ExperimentPage";
   }
 
   setStateWrapper(newState) {
@@ -47,50 +50,52 @@ class ExperimentPage extends Component {
     // persisted in local storage here.
     const { paramKeyFilterString, metricKeyFilterString, searchInput } = newState;
     this.setState(newState, () => {
-      window.localStorage.setItem(
+      this.store.setItem(
         ExperimentPage.getStateKey(this.props.experimentId),
-        JSON.stringify({
+        {
           paramKeyFilterString,
           metricKeyFilterString,
           searchInput,
-        })
-      );
+        });
     });
   }
 
   static loadState(experimentId) {
     // TODO state has dependency on props here...
-    const cachedState = JSON.parse(window.localStorage.getItem(ExperimentPage.getStateKey(experimentId)));
-    if (cachedState) {
-      // Load defaults, override with whatever's in local storage (if anything)
-      const res = {
-        ...ExperimentPage.defaultState,
-        ...cachedState,
-      };
-      console.log("Returning " + JSON.stringify(res));
-      return res;
-    }
-    return _.cloneDeep(ExperimentPage.defaultState);
+    const store = LocalStorageUtils.getStoreForExperiment(experimentId);
+    return store.getItem(ExperimentPage.getStateKey()).then((cachedState) => {
+      console.log("@SID In loadState promise");
+      if (cachedState) {
+        // Set state to defaults, overriding with whatever's in local storage (if anything)
+        return this.setState({
+          ..._.cloneDeep(ExperimentPage.defaultState),
+          ...cachedState,
+        });
+      }
+      return this.setState(_.cloneDeep(ExperimentPage.defaultState));
+    });
+
   }
 
-  static getDerivedStateFromProps(props, state) {
-    if (props.experimentId !== state.lastExperimentId) {
+  componentDidUpdate(prevProps) {
+    if (this.props.experimentId !== prevProps.experimentId) {
+      // TODO do something with the return value here?
+      ExperimentPage.loadState(this.props.experimentId);
       const newState = {
-        ...ExperimentPage.loadState(props.experimentId),
+        ...ExperimentPage.loadState(this.props.experimentId),
         getExperimentRequestId: getUUID(),
         searchRunsRequestId: getUUID(),
-        lastExperimentId: props.experimentId,
+        lastExperimentId: this.props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
-      props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
-      props.dispatch(searchRunsApi(
-        [props.experimentId],
+      this.props.dispatch(getExperimentApi(this.props.experimentId, newState.getExperimentRequestId));
+      this.props.dispatch(searchRunsApi(
+        [this.props.experimentId],
         SearchUtils.parseSearchInput(newState.searchInput),
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
         newState.searchRunsRequestId));
-      return newState;
+      this.setState(newState);
     }
-    return null;
   }
 
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
