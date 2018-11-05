@@ -7,10 +7,15 @@ export default class LocalStorageUtils {
   static version = "0.8.0";
 
   static getStore(name) {
-    return localForage.createInstance({
+    const store = localForage.createInstance({
       version: LocalStorageUtils.version,
       name: name,
     });
+    return store;
+  }
+
+  static getScopeForExperiment(experimentId) {
+    return "experiment-" + experimentId;
   }
 
   // Interface to local storage for the current experiment. We use the key

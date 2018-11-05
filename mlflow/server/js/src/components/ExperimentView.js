@@ -130,9 +130,11 @@ class ExperimentView extends Component {
   loadState() {
     const cachedState = this.store.getItem(this.getStateKey());
     const runsSelected = this.defaultState.runsSelected;
+    console.log("Loading cached state " + JSON.stringify(cachedState));
     if (cachedState) {
       return  {
-        // Include default state as a safeguard against bad data in localstorage
+        // Include default state as a safeguard against missing data in localstorage (e.g. if
+        // fields change)
         ..._.cloneDeep(this.defaultState),
         ...cachedState,
         runsSelected, // Don't save selected runs across page reloads
@@ -207,6 +209,33 @@ class ExperimentView extends Component {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
     this.setStateWrapper({[stateKey]: unbagged.concat([colName])});
+  }
+
+  /**
+   * Mark a column as bagged by removing it from the appropriate array of unbagged columns.
+   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
+   *                assumed to be a param column.
+   * @param colName Name of the column (metric or param key).
+   */
+  addBagged(isParam, colName) {
+    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const idx = unbagged.indexOf(colName);
+    const newUnbagged = idx >= 0 ?
+      unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
+    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    this.setState({[stateKey]: newUnbagged});
+  }
+
+  /**
+   * Mark a column as unbagged by adding it to the appropriate array of unbagged columns.
+   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
+   *                assumed to be a param column.
+   * @param colName Name of the column (metric or param key).
+   */
+  removeBagged(isParam, colName) {
+    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    this.setState({[stateKey]: unbagged.concat([colName])});
   }
 
   render() {

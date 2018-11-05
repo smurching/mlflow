@@ -62,9 +62,15 @@ class ExperimentRunsTableCompactView extends Component {
     paramKeyList: PropTypes.arrayOf(String).isRequired,
     metricKeyList: PropTypes.arrayOf(String).isRequired,
     metricRanges: PropTypes.object.isRequired,
+    // Handler for adding a metric or parameter to the set of bagged columns. All bagged metrics
+    // are displayed in a single column, while each unbagged metric has its own column. Similar
+    // logic applies for params.
     onAddBagged: PropTypes.func.isRequired,
+    // Handler for removing a metric or parameter from the set of bagged columns.
     onRemoveBagged: PropTypes.func.isRequired,
+    // Array of keys corresponding to unbagged params
     unbaggedParams: PropTypes.arrayOf(String).isRequired,
+    // Array of keys corresponding to unbagged metrics
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
   };
 
@@ -75,8 +81,7 @@ class ExperimentRunsTableCompactView extends Component {
   onHover({isParam, isMetric, key}) {
     this.setState({ hoverState: {isParam, isMetric, key} });
   }
-
-  // Builds a single row of table content (not header)
+  /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
       runInfos,
@@ -187,7 +192,7 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     });
-    if (this.showBaggedColumn(true)) {
+    if (this.shouldShowBaggedColumn(true)) {
       rowContents.push(
         <td key="params-container-cell" className="left-border">
           <div>{paramsCellContents}</div>
@@ -266,7 +271,7 @@ class ExperimentRunsTableCompactView extends Component {
         </span>
       );
     });
-    if (this.showBaggedColumn(false)) {
+    if (this.shouldShowBaggedColumn(false)) {
       rowContents.push(
         <td key="metrics-container-cell" className="metric-param-container-cell left-border">
           <div>
@@ -306,7 +311,11 @@ class ExperimentRunsTableCompactView extends Component {
     return undefined;
   }
 
-  showBaggedColumn(isParam) {
+  /**
+   * Returns true if our table should contain a column for displaying bagged params (if isParam is
+   * truthy) or bagged metrics.
+   */
+  shouldShowBaggedColumn(isParam) {
     const { metricKeyList, paramKeyList, unbaggedMetrics, unbaggedParams } = this.props;
     if (isParam) {
       return unbaggedParams.length !== paramKeyList.length || paramKeyList.length === 0;
@@ -314,6 +323,10 @@ class ExperimentRunsTableCompactView extends Component {
     return unbaggedMetrics.length !== metricKeyList.length || metricKeyList.length === 0;
   }
 
+  /**
+   * Returns an array of header-row cells (DOM elements) corresponding to metric / parameter
+   * columns.
+   */
   getMetricParamHeaderCells() {
     const {
       setSortByHandler,
@@ -370,16 +383,13 @@ class ExperimentRunsTableCompactView extends Component {
           </span>
         </th>);
     };
-
-    const paramClassName = classNames("bottom-row",
-      { "left-border": unbaggedParams.length === 0 });
-    const metricClassName = classNames("bottom-row",
-      { "left-border": unbaggedMetrics.length === 0 });
+    const paramClassName = classNames("bottom-row", {"left-border": unbaggedParams.length === 0});
+    const metricClassName = classNames("bottom-row", {"left-border": unbaggedMetrics.length === 0});
     unbaggedParams.forEach((paramKey, i) => {
       columns.push(getHeaderCell(true, paramKey, i));
     });
 
-    if (this.showBaggedColumn(true)) {
+    if (this.shouldShowBaggedColumn(true)) {
       columns.push(<th key="meta-bagged-params left-border" className={paramClassName}>
         {paramKeyList.length !== 0 ? "" : "(n/a)"}
       </th>);
@@ -387,7 +397,7 @@ class ExperimentRunsTableCompactView extends Component {
     unbaggedMetrics.forEach((metricKey, i) => {
       columns.push(getHeaderCell(false, metricKey, i));
     });
-    if (this.showBaggedColumn(false)) {
+    if (this.shouldShowBaggedColumn(false)) {
       columns.push(<th key="meta-bagged-metrics left-border" className={metricClassName}>
         {metricKeyList.length !== 0 ? "" : "(n/a)"}
       </th>);
@@ -433,13 +443,12 @@ class ExperimentRunsTableCompactView extends Component {
           <th
             className="top-row left-border"
             scope="colgroup"
-
-            colSpan={unbaggedParams.length + this.showBaggedColumn(true)}
+            colSpan={unbaggedParams.length + this.shouldShowBaggedColumn(true)}
           >
             Parameters
           </th>
           <th className="top-row left-border" scope="colgroup"
-            colSpan={unbaggedMetrics.length + this.showBaggedColumn(false)}
+            colSpan={unbaggedMetrics.length + this.shouldShowBaggedColumn(false)}
           >
             Metrics
           </th>

@@ -1,7 +1,17 @@
 import React, { Component } from 'react';
 import './ExperimentPage.css';
 import PropTypes from 'prop-types';
-import { getExperimentApi, getUUID, searchRunsApi } from '../Actions';
+import {
+  getExperimentApi,
+  getFromLocalstorageApi,
+  getUUID,
+  searchRunsApi,
+  setInLocalstorageApi
+} from '../Actions';
+
+import {
+  getFromLocalStorage,
+} from "../reducers/Reducers";
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
@@ -19,27 +29,30 @@ class ExperimentPage extends Component {
     super(props);
     this.onSearch = this.onSearch.bind(this);
     this.getRequestIds = this.getRequestIds.bind(this);
-    // Load state from localstorage & set it
-    ExperimentPage.loadState(props.experimentId).then((state) => this.setState(state));
+    // TODO should we set prop defaults elsehwere?
   }
+
+  static defaultProps = {
+    searchInput: "",
+    metricKeyFilterString: "",
+    paramKeyFilterString: "",
+  };
 
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
     dispatchSearchRuns: PropTypes.func.isRequired,
+    paramKeyFilterString: PropTypes.string.isRequired,
+    metricKeyFilterString: PropTypes.string.isRequired,
+    searchInput: PropTypes.string.isRequired,
   };
 
-  static defaultState = {
-    paramKeyFilterString: "",
-    metricKeyFilterString: "",
+  state = {
     getExperimentRequestId: getUUID(),
     searchRunsRequestId: getUUID(),
-    searchInput: '',
+    cachedStateRequestId: getUUID(),
     lastExperimentId: undefined,
     lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
   };
-
-
-  state = ExperimentPage.loadState(this.props.experimentId);
 
   store = LocalStorageUtils.getStoreForExperiment(this.props.experimentId);
 
@@ -48,18 +61,16 @@ class ExperimentPage extends Component {
   }
 
   setStateWrapper(newState) {
-    // Wrapper over setState that caches certain fields in local storage. New fields can be
-    // persisted in local storage here.
+    // Caches certain fields in local storage. New fields can be persisted in local storage here.
     const { paramKeyFilterString, metricKeyFilterString, searchInput } = newState;
-    this.setState(newState, () => {
-      this.store.setItem(
-        ExperimentPage.getStateKey(this.props.experimentId),
-        {
-          paramKeyFilterString,
-          metricKeyFilterString,
-          searchInput,
-        });
-    });
+    this.props.dispatch(setInLocalstorageApi(
+      LocalStorageUtils.getScopeForExperiment(this.props.experimentId),
+      ExperimentPage.getStateKey(this.props.experimentId),
+      {
+        paramKeyFilterString,
+        metricKeyFilterString,
+        searchInput,
+      }));
   }
 
   static loadState(experimentId) {
@@ -80,20 +91,26 @@ class ExperimentPage extends Component {
   }
 
   static getDerivedStateFromProps(props, state) {
+    console.log("In gertDerivedStateFromProps, props: " + JSON.stringify(props) + ", state: " + JSON.stringify(state));
     if (props.experimentId !== state.lastExperimentId) {
       const newState = {
-        ...ExperimentPage.loadState(props.experimentId),
         getExperimentRequestId: getUUID(),
         searchRunsRequestId: getUUID(),
+        cachedStateRequestId: getUUID(),
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
       props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
       props.dispatch(searchRunsApi(
         [props.experimentId],
-        SearchUtils.parseSearchInput(newState.searchInput),
+        SearchUtils.parseSearchInput(props.searchInput),
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
         newState.searchRunsRequestId));
+      props.dispatch(getFromLocalstorageApi(
+        LocalStorageUtils.getScopeForExperiment(props.experimentId),
+        ExperimentPage.getStateKey(),
+        newState.cachedStateRequestId,
+      ));
       return newState;
     }
     return null;
@@ -105,6 +122,8 @@ class ExperimentPage extends Component {
       paramKeyFilterString,
       metricKeyFilterString,
       searchInput,
+    });
+    this.setState({
       lifecycleFilter: lifecycleFilterInput
     });
     const searchRunsRequestId = this.props.dispatchSearchRuns(
@@ -121,13 +140,13 @@ class ExperimentPage extends Component {
       <div className="ExperimentPage">
         <RequestStateWrapper requestIds={this.getRequestIds()}>
           <ExperimentView
-            paramKeyFilter={new KeyFilter(this.state.paramKeyFilterString)}
-            metricKeyFilter={new KeyFilter(this.state.metricKeyFilterString)}
+            paramKeyFilter={new KeyFilter(this.props.paramKeyFilterString)}
+            metricKeyFilter={new KeyFilter(this.props.metricKeyFilterString)}
             experimentId={this.props.experimentId}
             searchRunsRequestId={this.state.searchRunsRequestId}
             lifecycleFilter={this.state.lifecycleFilter}
             onSearch={this.onSearch}
-            searchInput={this.state.searchInput}
+            searchInput={this.props.searchInput}
           />
         </RequestStateWrapper>
       </div>
@@ -135,7 +154,7 @@ class ExperimentPage extends Component {
   }
 
   getRequestIds() {
-    return [this.state.getExperimentRequestId, this.state.searchRunsRequestId];
+    return [this.state.getExperimentRequestId, this.state.searchRunsRequestId, this.state.cachedStateRequestId];
   }
 }
 
@@ -159,4 +178,17 @@ const lifecycleFilterToRunViewType = (lifecycleFilter) => {
   }
 };
 
-export default connect(undefined, mapDispatchToProps)(ExperimentPage);
+const mapStateToProps = (state, ownProps) => {
+  const localStorageProps = getFromLocalStorage(state, LocalStorageUtils.getScopeForExperiment(ownProps.experimentId), ExperimentPage.getStateKey());
+  if (localStorageProps) {
+    const res = {
+      ...ownProps,
+      ...localStorageProps,
+    };
+    console.log("@SID ExperimentPage mapStateToProps, got props: " + JSON.stringify(res));
+    return res;
+  }
+  return ownProps;
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(ExperimentPage);

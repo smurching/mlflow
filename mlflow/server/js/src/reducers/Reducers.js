@@ -5,6 +5,7 @@ import {
   isRejectedApi,
   LIST_ARTIFACTS_API,
   LIST_EXPERIMENTS_API, OPEN_ERROR_MODAL, SEARCH_RUNS_API, SET_TAG_API,
+  GET_FROM_LOCALSTORAGE, SET_IN_LOCALSTORAGE,
 } from '../Actions';
 import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
@@ -152,6 +153,38 @@ export const getRunTags = (runUuid, state) => {
     return tags;
   } else {
     return {};
+  }
+};
+
+// Amend redux state corresponding to localStorage
+const amendLocalStorage = (state, storageScope, key, value) => {
+  // TODO add an intermediate key ehre, like state["localstorage"][storageScope]
+  const oldStorageScope = state[storageScope] || {};
+  return {
+    ...state,
+    [storageScope]: {
+      ...oldStorageScope,
+      [key]: value,
+    }
+  }
+};
+
+export const getFromLocalStorage = (state, storageScope, key) => {
+  const cachedObj = state[storageScope] || {};
+  return cachedObj[key];
+};
+
+const localStorageReducer = (state = {}, action) => {
+  switch (action.type) {
+    case fulfilled(GET_FROM_LOCALSTORAGE): {
+      return amendLocalStorage(state, action.meta.storageScope, action.meta.key, action.payload);
+    }
+    case fulfilled(SET_IN_LOCALSTORAGE): {
+      return amendLocalStorage(state, action.meta.storageScope, action.meta.key, action.payload);
+    }
+    default: {
+      return state;
+    }
   }
 };
 
@@ -327,6 +360,17 @@ const errorModal = (state = errorModalDefault, action) => {
   }
 };
 
+// const localStorage = (state = {}, action) => {
+//   switch (action.type) {
+//     case GET_FROM_LOCALSTORAGE: {
+//       return {
+//         ...state,
+//
+//       }
+//     }
+//   }
+// }
+
 const views = combineReducers({
   errorModal,
 });
@@ -335,4 +379,5 @@ export const rootReducer = combineReducers({
   entities,
   views,
   apis,
+  localStorageReducer,
 });

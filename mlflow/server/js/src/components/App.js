@@ -16,6 +16,7 @@ import HomePage from './HomePage';
 import ErrorModal from './modals/ErrorModal';
 import PageNotFoundView from './PageNotFoundView';
 import { Switch } from 'react-router';
+import localForage from 'localforage';
 
 class App extends Component {
   render() {

@@ -1,5 +1,6 @@
 import { MlflowService } from './sdk/MlflowService';
 import ErrorCodes from './sdk/ErrorCodes';
+import LocalStorageUtils from './utils/LocalStorageUtils';
 
 export const isPendingApi = (action) => {
   return action.type.endsWith("_PENDING");
@@ -134,6 +135,35 @@ export const openErrorModal = (text) => {
     text,
   };
 };
+
+// Set data in localstorage. Exposed as an action so that code paths
+// dependent on localstorage can easily be refactored to make REST API requests to persist the same
+// data in the future.
+export const SET_IN_LOCALSTORAGE = 'SET_IN_LOCALSTORAGE';
+export const setInLocalstorageApi = (storageScope, key, value, id = getUUID()) => {
+  const storage = LocalStorageUtils.getStore(storageScope);
+  return {
+    type: SET_IN_LOCALSTORAGE,
+    // TODO(Sid): Do we need the "then" here? Mainly seems like it could help update Redux state
+    // after we set local storage
+    payload: storage.setItem(key, value).then(() => { return value }),
+    meta: { id: id, storageScope: storageScope, key: key, value: value },
+  };
+};
+
+// Load data from localstorage into the Redux store. Exposed as an action so that code paths
+// dependent on localstorage can easily be refactored to make REST API requests for the same data
+// in the future.
+export const GET_FROM_LOCALSTORAGE = 'GET_FROM_LOCALSTORAGE';
+export const getFromLocalstorageApi = (storageScope, key, id = getUUID()) => {
+  const storage = LocalStorageUtils.getStore(storageScope);
+  return {
+    type: GET_FROM_LOCALSTORAGE,
+    payload: storage.getItem(key),
+    meta: { id: id, storageScope: storageScope, key: key },
+  };
+};
+
 
 export const getUUID = () => {
   const randomPart = Math.random()
