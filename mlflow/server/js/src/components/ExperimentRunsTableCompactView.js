@@ -79,7 +79,7 @@ class ExperimentRunsTableCompactView extends Component {
   };
 
   onHover({isParam, isMetric, key}) {
-    this.setState({ hoverState: {isParam, isMetric, key} });
+    // this.setState({ hoverState: {isParam, isMetric, key} });
   }
 
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
@@ -127,10 +127,8 @@ class ExperimentRunsTableCompactView extends Component {
     });
     // Add bagged params
     const paramsCellContents = baggedParams.map((paramKey) => {
-      const cellClass = classNames("metric-param-content",
-        { highlighted: hoverState.isParam && hoverState.key === paramKey });
+      const cellClass = classNames("metric-param-content");
       const keyname = "param-" + paramKey;
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (
         <div
           key={keyname}
@@ -138,29 +136,10 @@ class ExperimentRunsTableCompactView extends Component {
         >
           <span
             className={cellClass}
-            onMouseEnter={() => this.onHover({isParam: true, isMetric: false, key: paramKey})}
-            onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
           >
-            <Dropdown id="dropdown-custom-1">
-              <ExperimentRunsSortToggle
-                bsRole="toggle"
-                className="metric-param-sort-toggle"
-              >
-                <span
-                  className="run-table-container underline-on-hover"
-                  style={styles.metricParamCellContent}
-                >
-                  <span style={{marginRight: sortIcon ? 2 : 0}}>
-                    {sortIcon}
-                  </span>
-                  <span className="metric-param-name" title={paramKey}>
-                    {paramKey}
-                  </span>
-                  <span>
-                    :
-                  </span>
-                </span>
-              </ExperimentRunsSortToggle>
+              <span className="metric-param-name" title={paramKey}>
+                {paramKey}
+              </span>
               <span
                 className="metric-param-value run-table-container"
                 style={styles.metricParamCellContent}
@@ -168,34 +147,13 @@ class ExperimentRunsTableCompactView extends Component {
               >
                   {paramsMap[paramKey].getValue()}
               </span>
-              <Dropdown.Menu className="mlflow-menu">
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(false, true, paramKey, true)}
-                >
-                  Sort ascending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(false, true, paramKey, false)}
-                >
-                  Sort descending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => onRemoveBagged(true, paramKey)}
-                >
-                  Display in own column
-                </MenuItem>
-              </Dropdown.Menu>
-            </Dropdown>
           </span>
         </div>
       );
     });
     if (this.shouldShowBaggedColumn(true)) {
       rowContents.push(
-        <td key="params-container-cell" className="left-border">
+        <td key={"params-container-cell-" + runInfo.run_uuid} className="left-border">
           <div>{paramsCellContents}</div>
         </td>);
     }
@@ -209,75 +167,31 @@ class ExperimentRunsTableCompactView extends Component {
     // Add bagged metrics
     const metricsCellContents = baggedMetrics.map((metricKey) => {
       const keyname = "metric-" + metricKey;
-      const cellClass = classNames("metric-param-content",
-        { highlighted: hoverState.isMetric && hoverState.key === metricKey });
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
+      const cellClass = classNames("metric-param-content");
       const metric = metricsMap[metricKey].getValue();
       return (
         <span
           key={keyname}
           className={"metric-param-cell"}
-          onMouseEnter={() => this.onHover({isParam: false, isMetric: true, key: metricKey})}
-          onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
         >
           <span className={cellClass}>
-            <Dropdown id="dropdown-custom-1">
-              <ExperimentRunsSortToggle
-                bsRole="toggle"
-                className={"metric-param-sort-toggle"}
-              >
-                <span
-                  className="run-table-container underline-on-hover"
-                  style={styles.metricParamCellContent}
-                >
-                  <span style={{marginRight: sortIcon ? 2 : 0}}>
-                    {sortIcon}
-                  </span>
-                  <span className="metric-param-name" title={metricKey}>
-                    {metricKey}
-                  </span>
-                  <span>
-                    :
-                  </span>
-                </span>
-              </ExperimentRunsSortToggle>
+              <span className="metric-param-name" title={metricKey}>
+                {metricKey}
+              </span>
               <span
                 className="metric-param-value run-table-container"
                 style={styles.metricParamCellContent}
               >
                 {Utils.formatMetric(metric)}
               </span>
-              <Dropdown.Menu className="mlflow-menu">
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(true, false, metricKey, true)}
-                >
-                  Sort ascending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(true, false, metricKey, false)}
-                >
-                  Sort descending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => onRemoveBagged(false, metricKey)}
-                >
-                  Display in own column
-                </MenuItem>
-              </Dropdown.Menu>
-            </Dropdown>
           </span>
         </span>
       );
     });
     if (this.shouldShowBaggedColumn(false)) {
       rowContents.push(
-        <td key="metrics-container-cell" className="metric-param-container-cell left-border">
-          <div>
-            {metricsCellContents}
-          </div>
+        <td key={"metrics-container-cell-" + runInfo.run_uuid} className="metric-param-container-cell left-border">
+          {metricsCellContents}
         </td>
       );
     }
@@ -289,27 +203,6 @@ class ExperimentRunsTableCompactView extends Component {
       contents: rowContents,
       isChild: !isParent,
     };
-  }
-
-  getSortInfo(isMetric, isParam) {
-    const { sortState, onSortBy } = this.props;
-    const sortIcon = sortState.ascending ?
-      <i className="fas fa-caret-up" style={styles.sortArrow}/> :
-      <i className="fas fa-caret-down" style={styles.sortArrow}/>;
-    if (sortState.isMetric === isMetric && sortState.isParam === isParam) {
-      return (
-        <span
-          style={styles.sortToggle}
-          onClick={() => onSortBy(isMetric, isParam, sortState.key)}
-        >
-        <span style={styles.sortKeyName} className="run-table-container">
-          (sort: {sortState.key}
-        </span>
-          {sortIcon}
-          <span>)</span>
-      </span>);
-    }
-    return undefined;
   }
 
   /**
