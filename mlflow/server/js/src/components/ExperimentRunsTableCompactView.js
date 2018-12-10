@@ -365,22 +365,81 @@ class ExperimentRunsTableCompactView extends Component {
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
 
-    // // Thought: Need to use this to render the header row, since you have two of them.
-    // EDIT: react-virtualized only shows one row though.
-    // const headerRowRenderer = ({
-    //                              className,
-    //                              columns,
-    //                              style
-    //                            }) => {
-    //   // const topRowContents = [...Array(7).keys()].map(() => <div/>);
-    //   // topRowContents.concat([<div>Parameters</div>, <div>Metrics</div>]);
-    //   // const topRow = <div role="row" className={className}>
-    //   //   {topRowContents}
-    //   // </div>;
-    //   const bottomRow = <div role="row" className={className}>{headerCells}</div>;
-    //   // return [topRow, bottomRow];
-    //   return bottomRow;
-    // };
+    const baseColStyle = {}; //{display: "flex", alignItems: "flex-start"};
+
+    // Run metadata column renderers
+    const colRenderers = [...Array(7).keys()].map((colIdx) => {
+      return ({rowIndex, style}) => {
+        return <div style={{...style, ...baseColStyle}}>{rows[rowIndex].contents[colIdx]}</div>;
+      }
+    });
+    // Unbagged parameters
+    unbaggedParams.forEach((unbaggedParam, idx) => {
+      const borderClass = classNames({"left-border": idx === 0});
+      const unbaggedParamRenderer = ({rowIndex, style}) => {
+        return <div className={borderClass} style={{...style, ...baseColStyle}}>{rows[rowIndex].contents[7 + idx]}</div>;
+      };
+      colRenderers.push(unbaggedParamRenderer)
+    });
+
+    // Bagged params
+    const baggedParamRenderer = ({rowIndex, parent, key, style}) => {
+      // return         <div
+      //   style={{
+      //     ...style,
+      //     ...baseColStyle,
+      //     borderLeft: "1px solid #e2e2e2",
+      //     whiteSpace: 'normal',
+      //   }}>
+      //   {rows[rowIndex].contents[7 + unbaggedParams.length]}
+      // </div>;
+
+      return (
+        <div
+          style={{
+            ...style,
+            ...baseColStyle,
+            borderLeft: "1px solid #e2e2e2",
+            whiteSpace: 'normal',
+          }}>
+          {rows[rowIndex].contents[7 + unbaggedParams.length]}
+        </div>);
+    };
+    colRenderers.push(baggedParamRenderer);
+
+    // Unbagged metrics
+    unbaggedMetrics.forEach((unbaggedMetric, idx) => {
+      const borderClass = classNames({"left-border": idx === 0});
+      const unbaggedMetricRenderer = ({rowIndex, style}) => {
+        return <div className={borderClass} style={{...style, ...baseColStyle}}>{rows[rowIndex].contents[8 + unbaggedParams.length + idx]}</div>;
+      };
+      colRenderers.push(unbaggedMetricRenderer);
+    });
+
+    const baggedMetricRenderer = ({rowIndex, parent, key, style}) => {
+      // return         <div
+      //   style={{
+      //     ...style,
+      //     ...baseColStyle,
+      //     borderLeft: "1px solid #e2e2e2",
+      //     whiteSpace: 'normal',
+      //   }}>
+      //   {rows[rowIndex].contents[8 + unbaggedParams.length + unbaggedMetrics.length]}
+      // </div>;
+
+      return (
+        <div
+          style={{
+            ...style,
+            ...baseColStyle,
+            borderLeft: "1px solid #e2e2e2",
+            whiteSpace: 'normal',
+          }}>
+          {rows[rowIndex].contents[8 + unbaggedParams.length + unbaggedMetrics.length]}
+        </div>);
+    };
+    colRenderers.push(baggedMetricRenderer);
+
     return (
           <AutoSizer>
             {({width, height}) => {
@@ -407,216 +466,68 @@ class ExperimentRunsTableCompactView extends Component {
                 this._lastUnbaggedParams = unbaggedParams;
                 this._cache.clearAll();
               }
-              return (<Table
+              // Metadata columns have widths of 150, besides the first two checkbox & expander ones
+              const colWidths = [30, 30];
+              [...Array(5).keys()].forEach(() => colWidths.push(150));
+              // Unbagged parmas have widths of 250
+              [...Array(unbaggedParams.length).keys()].forEach(() => colWidths.push(250));
+              // Bagged params have widths of 250
+              [...Array(1).keys()].forEach(() => colWidths.push(250));
+              // Unbagged metrics have widths of 250
+              [...Array(unbaggedMetrics.length).keys()].forEach(() => colWidths.push(250));
+              // Bagged metrics have widths of 250
+              [...Array(1).keys()].forEach(() => colWidths.push(250));
+              const estimatedWidth = 30 * 2 + 150 * 5 + 250 * (unbaggedMetrics.length + unbaggedParams.length + 2);
+
+              return (<Grid
                 width={width + unbaggedMetrics.length * 120 + unbaggedParams.length * 120}
                 deferredMeasurementCache={this._cache}
+                columnCount={rows[0].contents.length}
                 // height={height}
                 height={500}
+                columnWidth={({index}) => {
+                  console.log("Width for " + index + ", " + colWidths[index]);
+                  const res = colWidths[index];
+                  if (!res) {
+                    debugger;
+                  }
+                  return res;
+                }}
                 headerHeight={48}
                 overscanRowCount={2}
-                // onRowsRendered={({ overscanStartIndex, overscanStopIndex, startIndex, stopIndex }) => {
-                //   console.log("overscanStartIndex: " + overscanStartIndex);
-                //   console.log("overscanStopIndex: " + overscanStopIndex);
-                //   console.log("startIndex: " + startIndex);
-                //   console.log("stopIndex: " + stopIndex);
-                // }}
                 rowHeight={this._cache.rowHeight}
+                // rowHeight={200}
+                // rowCount={rows.length}
                 rowCount={rows.length}
-                // overscanIndicesGetter={({
-                //                           direction,          // One of "horizontal" or "vertical"
-                //                           cellCount,          // Number of rows or columns in the current axis
-                //                           scrollDirection,    // 1 (forwards) or -1 (backwards)
-                //                           overscanCellsCount, // Maximum number of cells to over-render in either direction
-                //                           startIndex,         // Begin of range of visible cells
-                //                           stopIndex           // End of range of visible cells
-                //                         }) => {
-                //   const startIdx = Math.max(0, startIndex - overscanCellsCount);
-                //   const endIdx = Math.min(stopIndex + overscanCellsCount, cellCount - 1);
-                //   return {overscanStartIndex: startIdx, overscanStopIndex: endIdx};
+                estimatedColumnSize={estimatedWidth}
+                // rowGetter={({index}) => rows[index]}
+                // rowStyle={({index}) => {
+                //   // console.log("Row style for row " + index);
+                //   const borderStyle = "1px solid #e2e2e2";
+                //   const base = {alignItems: "stretch", borderBottom: borderStyle, overflow: "visible"};
+                //   if (index === - 1) {
+                //     return {...base, borderTop: borderStyle};
+                //   }
+                //   return base;
                 // }}
-                rowGetter={({index}) => rows[index]}
-                rowStyle={({index}) => {
-                  // console.log("Row style for row " + index);
-                  const borderStyle = "1px solid #e2e2e2";
-                  const base = {alignItems: "stretch", borderBottom: borderStyle, overflow: "visible"};
-                  if (index === - 1) {
-                    return {...base, borderTop: borderStyle};
-                  }
-                  return base;
+                cellRenderer={({ columnIndex, key, rowIndex, style, parent }) => {
+                  console.log("Style for row " + rowIndex + ", colIdx " + columnIndex + ", : " + JSON.stringify(style));
+                  // TODO propagate key inside fn
+                  return <CellMeasurer
+                    cache={this._cache}
+                    columnIndex={columnIndex}
+                    key={key}
+                    parent={parent}
+                    rowIndex={rowIndex}
+                    style={style}
+                  >
+                    {/*<div className="hi-from-sid">{colRenderers[columnIndex]({key, rowIndex, style, parent})}</div>*/}
+                    <div style={{...style, maxWidth: 250, whiteSpace: "pre-wrap"}} key={key}>{"a".repeat(1000)}</div>
+                  </CellMeasurer>
                 }}
               >
-                <Column
-                  label='Checkbox'
-                  dataKey='checkbox'
-                  width={30}
-                  headerRenderer={() => {
-                    return headerCells[0]
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[0];
-                  }}
-                />
-                <Column
-                  label='Expander'
-                  dataKey='expander'
-                  width={30}
-                  headerRenderer={() => {
-                  return headerCells[1]
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[1];
-                  }}
-                />
-                <Column
-                  label='Date'
-                  dataKey='date'
-                  width={150}
-                  headerRenderer={() => {
-                    return headerCells[2]
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  flexShrink={0}
-                  cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
-                    return rows[rowIndex].contents[1 + 1];
-                  }}
-                />
-                <Column
-                  label='User'
-                  dataKey='user'
-                  width={120}
-                  headerRenderer={() => {
-                    return headerCells[3]
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[2 + 1];
-                  }}
-                />
-                <Column
-                  label='Run Name'
-                  dataKey='name'
-                  width={120}
-                  headerRenderer={() => {
-                    return headerCells[4]
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[3 + 1];
-                  }}
-                />
-                <Column
-                  label='Source'
-                  dataKey='source'
-                  width={120}
-                  headerRenderer={() => {
-                    return headerCells[5]
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[4 + 1];
-                  }}
-                />
-                <Column
-                  label='Version'
-                  dataKey='version'
-                  width={120}
-                  headerRenderer={() => {
-                    return headerCells[6]
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[5 + 1];
-                  }}
-                />
-                {unbaggedParams.map((unbaggedParam, idx) => {
-                  const borderClass = classNames({"left-border": idx === 0});
-                  return <Column
-                    key={"param-" + unbaggedParam}
-                    label={"param-" + unbaggedParam}
-                    dataKey={"param-" + unbaggedParam}
-                    width={120}
-                    headerRenderer={() => {
-                      // // return <div>{unbaggedParam}</div>
-                      // if (idx === 0) {
-                      //   return <span style={}></span>
-                      // }
-                      return headerCells[7 + idx];
-                    }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                    cellRenderer={({rowIndex}) => {
-                      return rows[rowIndex].contents[7 + idx]
-                    }}
-                  />
-                })}
-                <Column
-                  width={300}
-                  label='Parameters'
-                  dataKey='params'
-                  headerRenderer={() => {
-                    //return headerCells[7 + unbaggedParams.length]
-                    return <div>Parameters</div>;
-                  }}
-                  style={{display: "flex", alignItems: "flex-start", borderLeft: "1px solid #e2e2e2"}}
-                  cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
-                    return (<CellMeasurer
-                      cache={this._cache}
-                      columnIndex={0}
-                      key={dataKey}
-                      parent={parent}
-                      rowIndex={rowIndex}>
-                      <div
-                        style={{
-                          whiteSpace: 'normal',
-                        }}>
-                        {rows[rowIndex].contents[7 + unbaggedParams.length]}
-                      </div>
-                    </CellMeasurer>);
-                  }}
-                />
-                {unbaggedMetrics.map((unbaggedMetric, idx) => {
-                  return <Column
-                    key={"metric-" + unbaggedMetric}
-                    label='Version'
-                    dataKey={"metric-" + unbaggedMetric}
-                    width={120}
-                    headerRenderer={() => {
-                      // return <div>{unbaggedMetric}</div>
-                      return headerCells[8 + unbaggedParams.length + idx];
-                    }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                    cellRenderer={({rowIndex}) => {
-                      return rows[rowIndex].contents[8 + unbaggedParams.length + idx];
-                    }}
-                  />
-                })}
-                <Column
-                  width={300}
-                  label='Metrics'
-                  dataKey='metrics'
-                  headerRenderer={() => {
-                    // return headerCells[8 + unbaggedParams.length + unbaggedMetrics.length]
-                    return <div>Metrics</div>
-                  }}
-                  style={{display: "flex", alignItems: "flex-start", borderLeft: "1px solid #e2e2e2"}}
-                  cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
-                    return (<CellMeasurer
-                      cache={this._cache}
-                      columnIndex={1}
-                      key={dataKey}
-                      parent={parent}
-                      rowIndex={rowIndex}>
-                      <div
-                        style={{
-                          whiteSpace: 'normal',
-                        }}>
-                        {rows[rowIndex].contents[8 + unbaggedParams.length + unbaggedMetrics.length]}
-                      </div>
-                    </CellMeasurer>);
-                  }}
-                />
-              </Table>);
+
+              </Grid>);
             }}
           </AutoSizer>
     );
