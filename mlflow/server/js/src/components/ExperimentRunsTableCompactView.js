@@ -189,7 +189,7 @@ class ExperimentRunsTableCompactView extends Component {
     });
     if (this.shouldShowBaggedColumn(false)) {
       rowContents.push(
-        <div key={"metrics-container-cell-" + runInfo.run_uuid} className="metric-param-container-cell">
+        <div key={"metrics-container-cell-" + runInfo.run_uuid}>
           {metricsCellContents}
         </div>
       );
@@ -426,11 +426,11 @@ class ExperimentRunsTableCompactView extends Component {
       //   }}>
       //   {rows[rowIndex].contents[8 + unbaggedParams.length + unbaggedMetrics.length]}
       // </div>;
-
+      // debugger;
       return (
         <div
           style={{
-            ...style,
+            // ...style, TODO(sid) don't do this temporarily to see what happens
             ...baseColStyle,
             borderLeft: "1px solid #e2e2e2",
             whiteSpace: 'normal',
@@ -519,10 +519,15 @@ class ExperimentRunsTableCompactView extends Component {
                     key={key}
                     parent={parent}
                     rowIndex={rowIndex}
-                    style={style}
                   >
+                    <div className="hi-from-sid"  style={style}>{
+                      [...Array(10).keys()].map(() => <div>{[Array(10).keys()].map(() => <div>{rowIndex.toString().repeat(20)}</div>)}</div>)
+                    }</div>
+                    {/*<div className="hi-from-sid"  style={style}>{*/}
+                      {/*colRenderers[columnIndex]({key, rowIndex, parent})*/}
+                    {/*}</div>*/}
                     {/*<div className="hi-from-sid">{colRenderers[columnIndex]({key, rowIndex, style, parent})}</div>*/}
-                    <div style={{...style, maxWidth: 250, whiteSpace: "pre-wrap"}} key={key}>{"a".repeat(1000)}</div>
+                    {/*{colRenderers[columnIndex]({key, rowIndex, style, parent})}*/}
                   </CellMeasurer>
                 }}
               >
