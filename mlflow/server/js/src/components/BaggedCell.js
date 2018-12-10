@@ -26,9 +26,10 @@ export default class BaggedCell extends PureComponent {
   render() {
     const { keyName, value, setSortByHandler, isParam, isMetric, onRemoveBagged,
       sortIcon } = this.props;
+    // const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     return (
-      <span
+      <div
         className={cellClass}
       >
       <Dropdown id="dropdown-custom-1" style={{width: 250}}>
@@ -72,7 +73,7 @@ export default class BaggedCell extends PureComponent {
           </MenuItem>
         </EmptyIfClosedMenu>
       </Dropdown>
-      </span>
+      </div>
     );
   }
 }

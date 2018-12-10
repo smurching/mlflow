@@ -164,6 +164,7 @@ class ExperimentRunsTableCompactView extends Component {
       rowContents.push(
         <div key={"params-container-cell-" + runInfo.run_uuid}>
           {paramsCellContents}
+          {/*{[...Array(10).keys()].map(() => <div>{[Array(10).keys()].map(() => <div>{idx.toString().repeat(20)}</div>)}</div>)}*/}
         </div>);
     }
 
@@ -520,8 +521,9 @@ class ExperimentRunsTableCompactView extends Component {
                     parent={parent}
                     rowIndex={rowIndex}
                   >
-                    <div className="hi-from-sid"  style={style}>{
-                      [...Array(10).keys()].map(() => <div>{[Array(10).keys()].map(() => <div>{rowIndex.toString().repeat(20)}</div>)}</div>)
+                    <div className="hi-from-sid"  style={{...style, borderLeft: "1px solid #e2e2e2", borderBottom: "1px solid #e2e2e2"}}>{
+                      colRenderers[columnIndex]({key, rowIndex, parent})
+                      // [...Array(10).keys()].map(() => <div>{[Array(10).keys()].map(() => <div>{rowIndex.toString().repeat(20)}</div>)}</div>)
                     }</div>
                     {/*<div className="hi-from-sid"  style={style}>{*/}
                       {/*colRenderers[columnIndex]({key, rowIndex, parent})*/}
