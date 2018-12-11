@@ -223,7 +223,7 @@ span.error-message {
 }
 
 /* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
-.ReactVirtualized__Table__rowColumn {
+.ExperimentView .ReactVirtualized__Table__rowColumn {
   overflow: visible !important;
 }
 
@@ -237,4 +237,8 @@ span.error-message {
 
 .ReactVirtualized__Table  .BaggedCell .run-table-container {
   padding: 4px;
+}
+
+.ExperimentView .ReactVirtualized__Grid {
+  overflow: visible !important;
 }

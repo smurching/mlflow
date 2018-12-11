@@ -151,7 +151,7 @@ export default class ExperimentViewUtil {
    * @param cellType Tag type of containing cell.
    */
   static getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, cellType) {
-    const className = "left-border run-table-container";
+    const className = "run-table-container";
     const keyName = "metric-" + metricKey;
     const CellComponent = `${cellType}`;
     if (metricsMap[metricKey]) {
@@ -181,7 +181,7 @@ export default class ExperimentViewUtil {
 
   static getUnbaggedParamCell(paramKey, paramsMap, cellType) {
     const CellComponent = `${cellType}`;
-    const className = "left-border run-table-container";
+    const className = "run-table-container";
     const keyName = "param-" + paramKey;
     if (paramsMap[paramKey]) {
       return <CellComponent className={className} key={keyName}>
@@ -297,7 +297,6 @@ export default class ExperimentViewUtil {
       return <CellComponent
         key={'Expander-' + runUuid}
         // class="run-table-container"
-        style={{padding: 8}}
       >
       </CellComponent>;
     }
@@ -307,7 +306,6 @@ export default class ExperimentViewUtil {
           onClick={onExpandBound}
           key={'Expander-' + runUuid}
           // class="run-table-container"
-          style={{padding: 8}}
         >
           <i className="ExperimentView-expander far fa-minus-square"/>
         </CellComponent>
@@ -318,7 +316,6 @@ export default class ExperimentViewUtil {
           onClick={onExpandBound}
           key={'Expander-' + runUuid}
           // class="run-table-container"
-          style={{padding: 8}}
         >
           <i className="ExperimentView-expander far fa-plus-square"/>
         </CellComponent>

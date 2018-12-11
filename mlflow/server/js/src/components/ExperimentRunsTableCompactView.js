@@ -258,7 +258,7 @@ class ExperimentRunsTableCompactView extends Component {
     const getHeaderCell = (isParam, key, i) => {
       const isMetric = !isParam;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
-      const className = classNames("bottom-row", { "left-border": i === 0 });
+      const className = classNames("bottom-row");
       const elemKey = (isParam ? "param-" : "metric-") + key;
       const keyContainerWidth = sortIcon ? "calc(100% - 20px)" : "100%";
       return (
@@ -367,31 +367,28 @@ class ExperimentRunsTableCompactView extends Component {
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
 
-    const baseColStyle = {}; //{display: "flex", alignItems: "flex-start"};
+    const baseColStyle = {padding: 8}; //{display: "flex", alignItems: "flex-start"};
 
     // Run metadata column renderers
     const colRenderers = [...Array(7).keys()].map((colIdx) => {
-      return ({rowIndex, style}) => {
-        return <div style={{...style, ...baseColStyle}}>{rows[rowIndex].contents[colIdx]}</div>;
+      return ({rowIndex}) => {
+        return <div style={{...baseColStyle}}>{rows[rowIndex].contents[colIdx]}</div>;
       }
     });
     // Unbagged parameters
     unbaggedParams.forEach((unbaggedParam, idx) => {
-      const borderClass = classNames({"left-border": idx === 0});
       const unbaggedParamRenderer = ({rowIndex, style}) => {
-        return <div className={borderClass} style={{...style, ...baseColStyle}}>{rows[rowIndex].contents[7 + idx]}</div>;
+        return <div style={{...baseColStyle}}>{rows[rowIndex].contents[7 + idx]}</div>;
       };
       colRenderers.push(unbaggedParamRenderer)
     });
 
     // Bagged params
-    const baggedParamRenderer = ({rowIndex, parent, key, style}) => {
+    const baggedParamRenderer = ({rowIndex, parent, key}) => {
       return (
         <div
           style={{
-            ...style,
             ...baseColStyle,
-            borderLeft: "1px solid #e2e2e2",
             whiteSpace: 'normal',
           }}>
           {rows[rowIndex].contents[7 + unbaggedParams.length]}
@@ -401,22 +398,19 @@ class ExperimentRunsTableCompactView extends Component {
 
     // Unbagged metrics
     unbaggedMetrics.forEach((unbaggedMetric, idx) => {
-      const borderClass = classNames({"left-border": idx === 0});
-      const unbaggedMetricRenderer = ({rowIndex, style}) => {
-        return <div className={borderClass} style={{...style, ...baseColStyle}}>
+      const unbaggedMetricRenderer = ({rowIndex}) => {
+        return <div style={{...baseColStyle}}>
           {rows[rowIndex].contents[8 + unbaggedParams.length + idx]}
           </div>;
       };
       colRenderers.push(unbaggedMetricRenderer);
     });
 
-    const baggedMetricRenderer = ({rowIndex, parent, key, style}) => {
+    const baggedMetricRenderer = ({rowIndex, parent, key}) => {
       return (
         <div
           style={{
-            // ...style, TODO(sid) don't do this temporarily to see what happens
             ...baseColStyle,
-            borderLeft: "1px solid #e2e2e2",
             whiteSpace: 'normal',
           }}>
           {rows[rowIndex].contents[8 + unbaggedParams.length + unbaggedMetrics.length]}
@@ -425,8 +419,12 @@ class ExperimentRunsTableCompactView extends Component {
     colRenderers.push(baggedMetricRenderer);
     const _renderHeaderCell = ({columnIndex, style, key}) => {
       // const columnSpecificStyle = columnIndex === 0 ? {} : {borderRight: "1px solid #e2e2e2"};
-      const columnSpecificStyle = {borderLeft: "1px solid #e2e2e2"};
-      const finalStyle = {...style, ...columnSpecificStyle, overflow: "visible"};
+      const customStyles = {
+        borderLeft: columnIndex >= 7 ? "1px solid #e2e2e2" : "",
+        borderBottom: "1px solid #e2e2e2",
+        padding: 8,
+      };
+      const finalStyle = {...style, ...customStyles, overflow: "visible"};
       return <div style={finalStyle} key={key}>{headerCells[columnIndex]}</div>;
     };
 
@@ -493,9 +491,9 @@ class ExperimentRunsTableCompactView extends Component {
                           return colWidths[index];
                         }}
                         columnCount={rows[0].contents.length}
-                        height={32}
+                        height={48}
                         cellRenderer={_renderHeaderCell}
-                        rowHeight={32}
+                        rowHeight={48}
                         rowCount={1}
                         scrollLeft={scrollLeft}
                         onScroll={onScroll}
@@ -526,7 +524,12 @@ class ExperimentRunsTableCompactView extends Component {
                         parent={parent}
                         rowIndex={rowIndex}
                       >
-                        <div className="hi-from-sid"  style={{...style, borderLeft: "1px solid #e2e2e2", borderBottom: "1px solid #e2e2e2"}}>{
+
+                        <div className="hi-from-sid"  style={{
+                          ...style,
+                          borderLeft: columnIndex >= 7 ? "1px solid #e2e2e2" : "",
+                          borderBottom: "1px solid #e2e2e2"
+                        }}>{
                           colRenderers[columnIndex]({key, rowIndex, parent})
                         }</div>
                       </CellMeasurer>
