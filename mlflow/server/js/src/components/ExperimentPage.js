@@ -95,6 +95,7 @@ class ExperimentPage extends Component {
 
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
     const andedExpressions = SearchUtils.parseSearchInput(searchInput);
+    console.log("Searching with lifecycle input " + lifecycleFilterInput);
     this.setState({
       persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,

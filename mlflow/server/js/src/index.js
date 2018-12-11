@@ -6,6 +6,8 @@ import registerServiceWorker from './registerServiceWorker';
 import { setupCsrf } from './setupCsrf';
 import { Provider } from 'react-redux';
 import store from './Store';
+import $ from 'jquery';
+window.$ = $;
 
 setupCsrf();
 

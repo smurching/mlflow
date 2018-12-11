@@ -18,7 +18,7 @@ export default class EmptyIfClosedMenu extends Component {
     }
     return (
       <RootCloseWrapper onRootClose={onClose}>
-        <Dropdown.Menu {...props} >
+        <Dropdown.Menu {...props} id="hallo" >
           {children}
         </Dropdown.Menu>
       </RootCloseWrapper>

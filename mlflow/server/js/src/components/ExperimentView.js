@@ -549,7 +549,8 @@ class ExperimentView extends Component {
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
-    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch());
+    console.log("Setting new lifecycle input " + newLifecycleInput);
+    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
   }
 
   onSearch(e) {
@@ -563,6 +564,7 @@ class ExperimentView extends Component {
       lifecycleFilterInput
     } = this.state;
     try {
+      console.log("In onSearch with lifecycleFilterInput " + lifecycleFilterInput);
       this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
         lifecycleFilterInput);
     } catch (ex) {

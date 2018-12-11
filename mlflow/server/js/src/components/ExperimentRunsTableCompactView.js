@@ -9,8 +9,12 @@ import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import Utils from '../utils/Utils';
 import BaggedCell from "./BaggedCell";
 import { Portal } from 'react-overlays';
+import { PortalWithState } from 'react-portal';
+import ReactModal from 'react-modal';
+import { Button, Modal } from 'react-bootstrap';
 
 import {CellMeasurer, CellMeasurerCache, Grid, AutoSizer, ScrollSync} from 'react-virtualized';
+import RelativePortal from 'react-relative-portal';
 
 
 import ReactDOM from 'react-dom';
@@ -102,6 +106,8 @@ class ExperimentRunsTableCompactView extends Component {
   state = {
     hoverState: {isMetric: false, isParam: false, key: ""},
     showPortal: false,
+    colStart: -1,
+    colStop: -1,
   };
 
   onHover({isParam, isMetric, key}) {
@@ -265,7 +271,7 @@ class ExperimentRunsTableCompactView extends Component {
       const elemKey = (isParam ? "param-" : "metric-") + key;
       const keyContainerWidth = sortIcon ? "calc(100% - 20px)" : "100%";
       const id = key + "-" + isParam;
-      const child = <Dropdown style={{width: "100%"}}>
+      const child = <Dropdown style={{width: "100%"}} id={"header-cell-dropdown-" + key}>
         <ExperimentRunsSortToggle
           bsRole="toggle"
           className="metric-param-sort-toggle"
@@ -294,6 +300,8 @@ class ExperimentRunsTableCompactView extends Component {
           </MenuItem>
         </EmptyIfClosedMenu>
       </Dropdown>;
+      const shouldShow = i >= this.state.colStart && i <= this.state.colStop;
+      console.log("Got column index " + i +", should show: " + shouldShow + ", state: " + JSON.stringify(this.state));
       return (
         <div
           key={elemKey}
@@ -303,13 +311,79 @@ class ExperimentRunsTableCompactView extends Component {
         >
           <span
             style={styles.metricParamHeaderContainer}
-            // TODO remove run-table-container here to fix horiz alignment issues?
             className="run-table-container"
           >
-            <div onClick={() => this.setState({showPortal: true})}>click mee</div>
-            <Portal container={() => this.refs.container}>
-              {this.state.showPortal && child}
-            </Portal>
+        <div>
+        <button>
+          Dropdown toggle
+        </button>
+        <RelativePortal
+          component="div"
+          left={0}
+          top={10}
+        >
+        {/*<EmptyIfClosedMenu className="mlflow-menu" bsRole="menu" open>*/}
+          { shouldShow && (<React.Fragment><MenuItem
+            className="mlflow-menu-item"
+            onClick={() => setSortByHandler(!isParam, isParam, key, true)}
+          >
+            Sort ascending
+          </MenuItem>
+          <MenuItem
+            className="mlflow-menu-item"
+            onClick={() => setSortByHandler(!isParam, isParam, key, false)}
+          >
+            Sort descending
+          </MenuItem>
+          <MenuItem
+            className="mlflow-menu-item"
+            onClick={() => onAddBagged(isParam, key)}
+          >
+            Collapse column
+          </MenuItem></React.Fragment>)}
+        {/*</EmptyIfClosedMenu>*/}
+        </RelativePortal>
+      </div>
+            {/*{child}*/}
+            {/*<ReactModal*/}
+              {/*isOpen*/}
+              {/*closeTimeoutMS={200}*/}
+              {/*appElement={document.body}*/}
+            {/*>*/}
+              {/*<Modal.Header>*/}
+                {/*<Modal.Title>*/}
+                  {/*Modal title*/}
+                {/*</Modal.Title>*/}
+              {/*</Modal.Header>*/}
+              {/*<Modal.Body>*/}
+                {/*<p style={{ marginBottom: '10px' }}>*/}
+                  {/*Modal help text*/}
+                {/*</p>*/}
+              {/*</Modal.Body>*/}
+              {/*<Modal.Footer>*/}
+                  {/*Modal footer*/}
+              {/*</Modal.Footer>*/}
+            {/*</ReactModal>*/}
+            {/*<PortalWithState closeOnOutsideClick closeOnEsc>*/}
+            {/*{({ openPortal, closePortal, isOpen, portal }) => (*/}
+              {/*<React.Fragment>*/}
+                {/*<button onClick={openPortal}>*/}
+                  {/*Open Portal*/}
+                {/*</button>*/}
+                {/*{portal(*/}
+                  {/*<p>*/}
+                    {/*This is more advanced Portal. It handles its own state.{' '}*/}
+                    {/*<button onClick={closePortal}>Close me!</button>, hit ESC or*/}
+                    {/*click outside of me.*/}
+                  {/*</p>*/}
+                {/*)}*/}
+              {/*</React.Fragment>*/}
+            {/*)}*/}
+          {/*</PortalWithState>*/}
+            {/*<div onClick={() => this.setState({showPortal: true})}>click mee</div>*/}
+            {/*<Portal container={() => this.refs.container}>*/}
+              {/*{this.state.showPortal && child}*/}
+            {/*</Portal>*/}
           </span>
         </div>);
     };
@@ -317,7 +391,7 @@ class ExperimentRunsTableCompactView extends Component {
     const paramClassName = classNames("bottom-row", {"left-border": unbaggedParams.length === 0});
     const metricClassName = classNames("bottom-row", {"left-border": unbaggedMetrics.length === 0});
     unbaggedParams.forEach((paramKey, i) => {
-      columns.push(getHeaderCell(true, paramKey, i));
+      columns.push(getHeaderCell(true, paramKey, 7 + i));
     });
 
     if (this.shouldShowBaggedColumn(true)) {
@@ -326,7 +400,8 @@ class ExperimentRunsTableCompactView extends Component {
       </div>);
     }
     unbaggedMetrics.forEach((metricKey, i) => {
-      columns.push(getHeaderCell(false, metricKey, i));
+      // TODO take into account shouldShowBaggedcolumn?
+      columns.push(getHeaderCell(false, metricKey, 7 + unbaggedParams.length + i + this.shouldShowBaggedColumn(true)));
     });
     if (this.shouldShowBaggedColumn(false)) {
       columns.push(<div key="meta-bagged-metrics left-border" className={metricClassName}>
@@ -457,11 +532,11 @@ class ExperimentRunsTableCompactView extends Component {
                     console.log("Clearing all because sort state changed!");
                     this._cache.clearAll();
                   }
-                  if (this._lastRunsExpanded !== runsExpanded) {
-                    this._lastRunsExpanded = runsExpanded;
-                    console.log("Clearing all because runs expanded changed!");
-                    this._cache.clearAll();
-                  }
+                  // if (this._lastRunsExpanded !== runsExpanded) {
+                  //   this._lastRunsExpanded = runsExpanded;
+                  //   console.log("Clearing all because runs expanded changed!");
+                  //   this._cache.clearAll();
+                  // }
                   if (this._lastUnbaggedMetrics !== unbaggedMetrics) {
                     this._lastUnbaggedMetrics = unbaggedMetrics;
                     this._cache.clearAll();
@@ -482,15 +557,13 @@ class ExperimentRunsTableCompactView extends Component {
                   // Bagged metrics have widths of 250
                   [...Array(1).keys()].forEach(() => colWidths.push(250));
                   const estimatedWidth = 30 * 2 + 150 + 150 * 5 + 250 * (unbaggedMetrics.length + unbaggedParams.length + 2);
-
                   return (
                     <div id="autosizer-return-container">
                       <Grid
-                        // className={styles.HeaderGrid}
                         columnWidth={({index}) => {
                           return colWidths[index];
                         }}
-                        columnCount={rows[0].contents.length}
+                        columnCount={colWidths.length}
                         height={48}
                         cellRenderer={_renderHeaderCell}
                         rowHeight={48}
@@ -503,7 +576,7 @@ class ExperimentRunsTableCompactView extends Component {
                   <Grid
                     width={width}
                     deferredMeasurementCache={this._cache}
-                    columnCount={rows[0].contents.length}
+                    columnCount={colWidths.length}
                     height={height - 48}
                     columnWidth={({index}) => {
                       return colWidths[index];
@@ -512,6 +585,11 @@ class ExperimentRunsTableCompactView extends Component {
                     rowHeight={this._cache.rowHeight}
                     rowCount={rows.length}
                     estimatedColumnSize={estimatedWidth}
+                    onSectionRendered={({ columnOverscanStartIndex, columnOverscanStopIndex,
+                      columnStartIndex, columnStopIndex}) => {
+                      console.log("Start column: " + columnStartIndex +", end column: " + columnStopIndex);
+                      this.setState({colStart: columnStartIndex, colStop: columnStopIndex});
+                    }}
                     onScroll={onScroll}
                     scrollLeft={scrollLeft}
                     cellRenderer={({ columnIndex, key, rowIndex, style, parent }) => {

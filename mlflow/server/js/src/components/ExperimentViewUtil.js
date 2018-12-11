@@ -10,7 +10,7 @@ export default class ExperimentViewUtil {
     const CellComponent = `${cellType}`;
     return <CellComponent key="meta-check" className="run-table-container">
       <div>
-        <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
+        <input type="checkbox" readOnly checked={selected} onClick={checkboxHandler}/>
       </div>
     </CellComponent>;
   }
