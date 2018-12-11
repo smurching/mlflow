@@ -424,7 +424,10 @@ class ExperimentRunsTableCompactView extends Component {
     };
     colRenderers.push(baggedMetricRenderer);
     const _renderHeaderCell = ({columnIndex, style, key}) => {
-      return <div style={{...style, overflow: "visible"}} key={key}>{headerCells[columnIndex]}</div>;
+      // const columnSpecificStyle = columnIndex === 0 ? {} : {borderRight: "1px solid #e2e2e2"};
+      const columnSpecificStyle = {borderLeft: "1px solid #e2e2e2"};
+      const finalStyle = {...style, ...columnSpecificStyle, overflow: "visible"};
+      return <div style={finalStyle} key={key}>{headerCells[columnIndex]}</div>;
     };
 
     return (
@@ -513,6 +516,7 @@ class ExperimentRunsTableCompactView extends Component {
                     rowCount={rows.length}
                     estimatedColumnSize={estimatedWidth}
                     onScroll={onScroll}
+                    scrollLeft={scrollLeft}
                     cellRenderer={({ columnIndex, key, rowIndex, style, parent }) => {
                       // TODO propagate key inside fn
                       return <CellMeasurer
