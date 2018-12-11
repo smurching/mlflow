@@ -332,7 +332,6 @@ class ExperimentRunsTableCompactView extends Component {
     minHeight: 32,
   });
 
-  _lastRenderedWidth = this.props.width;
   _lastSortState = this.props.sortState;
   _lastRunsExpanded = this.props.runsExpanded;
   _lastUnbaggedMetrics = this.props.unbaggedMetrics;
@@ -440,18 +439,9 @@ class ExperimentRunsTableCompactView extends Component {
               scrollTop,
               scrollWidth,
             }) => {
-            return (<div id="autosizer-parent" style={{  display: "flex",
-              minHeight: 500,
-              flexDirection: "column",
-              flex: "1 1 auto"}}>
+            return (<div id="autosizer-parent" className="flex-container">
               <AutoSizer>
                 {({width, height}) => {
-                  console.log("Autosizer width: " + width);
-                  if (this._lastRenderedWidth !== width) {
-                    this._lastRenderedWidth = width;
-                    console.log("Clearing all!");
-                    this._cache.clearAll();
-                  }
                   if (this._lastSortState !== sortState) {
                     this._lastSortState = sortState;
 
@@ -471,9 +461,9 @@ class ExperimentRunsTableCompactView extends Component {
                     this._lastUnbaggedParams = unbaggedParams;
                     this._cache.clearAll();
                   }
-                  // Metadata columns have widths of 150, besides the first two checkbox & expander ones
-                  const colWidths = [30, 30];
-                  [...Array(5).keys()].forEach(() => colWidths.push(150));
+                  // Metadata columns have widths of 150, besides checkbox, expander, and date cols
+                  const colWidths = [30, 30, 180];
+                  [...Array(4).keys()].forEach(() => colWidths.push(150));
                   // Unbagged params have widths of 250
                   [...Array(unbaggedParams.length).keys()].forEach(() => colWidths.push(250));
                   // Bagged params have widths of 250
@@ -482,7 +472,7 @@ class ExperimentRunsTableCompactView extends Component {
                   [...Array(unbaggedMetrics.length).keys()].forEach(() => colWidths.push(250));
                   // Bagged metrics have widths of 250
                   [...Array(1).keys()].forEach(() => colWidths.push(250));
-                  const estimatedWidth = 30 * 2 + 150 * 5 + 250 * (unbaggedMetrics.length + unbaggedParams.length + 2);
+                  const estimatedWidth = 30 * 2 + 150 + 150 * 5 + 250 * (unbaggedMetrics.length + unbaggedParams.length + 2);
 
                   return (
                     <div id="autosizer-return-container">
