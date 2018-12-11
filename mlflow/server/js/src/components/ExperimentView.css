@@ -239,6 +239,6 @@ span.error-message {
   padding: 4px;
 }
 
-.ExperimentView .ReactVirtualized__Grid {
-  overflow: visible !important;
-}
+/*.ExperimentView .ReactVirtualized__Grid {*/
+  /*overflow: visible !important;*/
+/*}*/

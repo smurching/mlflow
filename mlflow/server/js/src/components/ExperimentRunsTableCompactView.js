@@ -441,102 +441,15 @@ class ExperimentRunsTableCompactView extends Component {
               scrollWidth,
             }) => {
             return (<div id="autosizer-parent" style={{  display: "flex",
+              minHeight: 200,
               flexDirection: "column",
               flex: "1 1 auto"}}>
               <AutoSizer>
                 {({width, height}) => {
-                  console.log("Autosizer width: " + width);
-                  if (this._lastRenderedWidth !== width) {
-                    this._lastRenderedWidth = width;
-                    console.log("Clearing all!");
-                    this._cache.clearAll();
-                  }
-                  if (this._lastSortState !== sortState) {
-                    this._lastSortState = sortState;
-
-                    console.log("Clearing all because sort state changed!");
-                    this._cache.clearAll();
-                  }
-                  if (this._lastRunsExpanded !== runsExpanded) {
-                    this._lastRunsExpanded = runsExpanded;
-                    console.log("Clearing all because runs expanded changed!");
-                    this._cache.clearAll();
-                  }
-                  if (this._lastUnbaggedMetrics !== unbaggedMetrics) {
-                    this._lastUnbaggedMetrics = unbaggedMetrics;
-                    this._cache.clearAll();
-                  }
-                  if (this._lastUnbaggedParams !== unbaggedParams) {
-                    this._lastUnbaggedParams = unbaggedParams;
-                    this._cache.clearAll();
-                  }
-                  // Metadata columns have widths of 150, besides the first two checkbox & expander ones
-                  const colWidths = [30, 30];
-                  [...Array(5).keys()].forEach(() => colWidths.push(150));
-                  // Unbagged params have widths of 250
-                  [...Array(unbaggedParams.length).keys()].forEach(() => colWidths.push(250));
-                  // Bagged params have widths of 250
-                  [...Array(1).keys()].forEach(() => colWidths.push(250));
-                  // Unbagged metrics have widths of 250
-                  [...Array(unbaggedMetrics.length).keys()].forEach(() => colWidths.push(250));
-                  // Bagged metrics have widths of 250
-                  [...Array(1).keys()].forEach(() => colWidths.push(250));
-                  const estimatedWidth = 30 * 2 + 150 * 5 + 250 * (unbaggedMetrics.length + unbaggedParams.length + 2);
-
-                  return (
-                    <div id="autosizer-return-container">
-                      <Grid
-                        // className={styles.HeaderGrid}
-                        columnWidth={({index}) => {
-                          return colWidths[index];
-                        }}
-                        columnCount={rows[0].contents.length}
-                        height={48}
-                        cellRenderer={_renderHeaderCell}
-                        rowHeight={48}
-                        rowCount={1}
-                        scrollLeft={scrollLeft}
-                        onScroll={onScroll}
-                        width={width}
-                        // width={width - scrollbarSize()}
-                      />
-                  <Grid
-                    width={width}
-                    deferredMeasurementCache={this._cache}
-                    columnCount={rows[0].contents.length}
-                    height={500}
-                    columnWidth={({index}) => {
-                      return colWidths[index];
-                    }}
-                    headerHeight={48}
-                    overscanRowCount={2}
-                    rowHeight={this._cache.rowHeight}
-                    rowCount={rows.length}
-                    estimatedColumnSize={estimatedWidth}
-                    onScroll={onScroll}
-                    scrollLeft={scrollLeft}
-                    cellRenderer={({ columnIndex, key, rowIndex, style, parent }) => {
-                      // TODO propagate key inside fn
-                      return <CellMeasurer
-                        cache={this._cache}
-                        columnIndex={columnIndex}
-                        key={key}
-                        parent={parent}
-                        rowIndex={rowIndex}
-                      >
-
-                        <div className="hi-from-sid"  style={{
-                          ...style,
-                          borderLeft: columnIndex >= 7 ? "1px solid #e2e2e2" : "",
-                          borderBottom: "1px solid #e2e2e2"
-                        }}>{
-                          colRenderers[columnIndex]({key, rowIndex, parent})
-                        }</div>
-                      </CellMeasurer>
-                    }}
-                  >
-                  </Grid>
-                  </div>);
+                  console.log("Width" + width + ", height: " + height);
+                  return <Grid columnCount={3} columnWidth={100} rowHeight={30} rowCount={1} height={height}
+                               width={width}
+                               cellRenderer={({key, style, columnIndex, rowIndex}) => <div key={key} style={style}>{rowIndex}-{columnIndex}</div>}/>
                 }}
               </AutoSizer>
             </div>);
