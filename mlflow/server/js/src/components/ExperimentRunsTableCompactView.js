@@ -8,13 +8,15 @@ import { Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import Utils from '../utils/Utils';
 import BaggedCell from "./BaggedCell";
+import { Portal } from 'react-overlays';
 
 import {CellMeasurer, CellMeasurerCache, Grid, AutoSizer, ScrollSync} from 'react-virtualized';
 
 
 import ReactDOM from 'react-dom';
 import { Column, Table } from 'react-virtualized';
-import 'react-virtualized/styles.css'; // only needs to be imported once
+import 'react-virtualized/styles.css';
+import EmptyIfClosedMenu from "./EmptyIfClosedMenu"
 
 
 // Table data as an array of objects
@@ -99,6 +101,7 @@ class ExperimentRunsTableCompactView extends Component {
 
   state = {
     hoverState: {isMetric: false, isParam: false, key: ""},
+    showPortal: false,
   };
 
   onHover({isParam, isMetric, key}) {
@@ -261,46 +264,52 @@ class ExperimentRunsTableCompactView extends Component {
       const className = classNames("bottom-row");
       const elemKey = (isParam ? "param-" : "metric-") + key;
       const keyContainerWidth = sortIcon ? "calc(100% - 20px)" : "100%";
+      const id = key + "-" + isParam;
+      const child = <Dropdown style={{width: "100%"}}>
+        <ExperimentRunsSortToggle
+          bsRole="toggle"
+          className="metric-param-sort-toggle"
+        >
+          <span style={{maxWidth: keyContainerWidth, overflow: "hidden", display: "inline-block", verticalAlign: "middle"}}>{key}</span>
+          <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
+        </ExperimentRunsSortToggle>
+        <EmptyIfClosedMenu className="mlflow-menu" bsRole="menu">
+          <MenuItem
+            className="mlflow-menu-item"
+            onClick={() => setSortByHandler(!isParam, isParam, key, true)}
+          >
+            Sort ascending
+          </MenuItem>
+          <MenuItem
+            className="mlflow-menu-item"
+            onClick={() => setSortByHandler(!isParam, isParam, key, false)}
+          >
+            Sort descending
+          </MenuItem>
+          <MenuItem
+            className="mlflow-menu-item"
+            onClick={() => onAddBagged(isParam, key)}
+          >
+            Collapse column
+          </MenuItem>
+        </EmptyIfClosedMenu>
+      </Dropdown>;
       return (
         <div
           key={elemKey}
           className={className}
-          style={{height: "100%", padding: "8px"}}
+          style={{height: "100%"}}
+          id={id}
         >
           <span
             style={styles.metricParamHeaderContainer}
             // TODO remove run-table-container here to fix horiz alignment issues?
             className="run-table-container"
           >
-            <Dropdown style={{width: "100%"}}>
-              <ExperimentRunsSortToggle
-                bsRole="toggle"
-                className="metric-param-sort-toggle"
-              >
-                <span style={{maxWidth: keyContainerWidth, overflow: "hidden", display: "inline-block", verticalAlign: "middle"}}>{key}</span>
-                <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
-              </ExperimentRunsSortToggle>
-              <Dropdown.Menu className="mlflow-menu">
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(!isParam, isParam, key, true)}
-                >
-                  Sort ascending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(!isParam, isParam, key, false)}
-                >
-                  Sort descending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => onAddBagged(isParam, key)}
-                >
-                  Collapse column
-                </MenuItem>
-              </Dropdown.Menu>
-            </Dropdown>
+            <div onClick={() => this.setState({showPortal: true})}>click mee</div>
+            <Portal container={() => this.refs.container}>
+              {this.state.showPortal && child}
+            </Portal>
           </span>
         </div>);
     };
@@ -439,7 +448,7 @@ class ExperimentRunsTableCompactView extends Component {
               scrollTop,
               scrollWidth,
             }) => {
-            return (<div id="autosizer-parent" className="flex-container">
+            return (<div id="autosizer-parent" className="flex-container" ref='container'>
               <AutoSizer>
                 {({width, height}) => {
                   if (this._lastSortState !== sortState) {
@@ -495,11 +504,10 @@ class ExperimentRunsTableCompactView extends Component {
                     width={width}
                     deferredMeasurementCache={this._cache}
                     columnCount={rows[0].contents.length}
-                    height={height}
+                    height={height - 48}
                     columnWidth={({index}) => {
                       return colWidths[index];
                     }}
-                    headerHeight={48}
                     overscanRowCount={2}
                     rowHeight={this._cache.rowHeight}
                     rowCount={rows.length}
