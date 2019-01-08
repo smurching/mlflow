@@ -82,11 +82,18 @@ script:
   - which mlflow
   - echo $MLFLOW_HOME
   - SAGEMAKER_OUT=$(mktemp)
+  - DOCKER_PROJECT_BUILD_OUT=$(mktemp)
   - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
       echo "Sagemaker container build succeeded.";
     else
       echo "Sagemaker container build failed, output:";
       cat $SAGEMAKER_OUT;
+    fi
+  - if docker build tests/resources/example_docker_project -t mlflow-docker-example > $DOCKER_PROJECT_BUILD_OUT 2>&1; then
+      echo "Docker project container build succeeded.";
+    else
+      echo "Docker project container build failed, output:";
+      cat $DOCKER_PROJECT_BUILD_OUT;
     fi
   # Run tests that don't leverage specific ML frameworks
   - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
