@@ -80,7 +80,7 @@ class LocalSubmittedRun(SubmittedRun):
             # Kill the the process tree rooted at the child if it's the leader of its own process
             # group, otherwise just kill the child
             try:
-                if self.command_proc.pid == os.getpgid(self.command_proc.pid):
+                if os.name != 'nt' and self.command_proc.pid == os.getpgid(self.command_proc.pid):
                     os.killpg(self.command_proc.pid, signal.SIGTERM)
                 else:
                     self.command_proc.terminate()

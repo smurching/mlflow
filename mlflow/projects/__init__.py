@@ -254,6 +254,7 @@ def _get_git_repo_url(work_dir):
         return None
     except InvalidGitRepositoryError:
         return None
+    print("Got remote urls %s" % remote_urls)
     return remote_urls[0]
 
 
@@ -270,7 +271,10 @@ def _is_file_uri(uri):
 
 def _is_local_uri(uri):
     """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
-    return not _GIT_URI_REGEX.match(uri)
+    from six.moves import urllib
+    # return not _GIT_URI_REGEX.match(uri)
+    parsed = urllib.parse.urlparse(uri)
+    return tracking.utils._is_local_uri(uri) and parsed.scheme != 'file'
 
 
 def _is_zip_uri(uri):
@@ -514,8 +518,13 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     final_env.update(env_map)
     # Launch `mlflow run` command as the leader of its own process group so that we can do a
     # best-effort cleanup of all its descendant processes if needed
+    preexec_fn = None
+    try:
+        preexec_fn = os.setsid
+    except AttributeError:
+        pass
     return subprocess.Popen(
-        mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid)
+        mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=preexec_fn)
 
 
 def _create_run(uri, experiment_id, work_dir, entry_point):

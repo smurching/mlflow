@@ -142,10 +142,10 @@ def _get_store(store_uri=None):
         return SqlAlchemyStore(store_uri)
     if _is_databricks_uri(store_uri):
         return _get_databricks_rest_store(store_uri)
-    if _is_local_uri(store_uri):
-        return _get_file_store(store_uri)
     if _is_http_uri(store_uri):
         return _get_rest_store(store_uri)
+    if _is_local_uri(store_uri):
+        return _get_file_store(store_uri)
 
     raise Exception("Tracking URI must be a local filesystem URI of the form '%s...' or a "
                     "remote URI of the form '%s...'. Update the tracking URI via "
@@ -154,7 +154,7 @@ def _get_store(store_uri=None):
 
 def _is_local_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return uri != 'databricks' and (scheme == '' or scheme == 'file')
+    return uri != 'databricks' and (scheme == '' or scheme == 'file' or scheme == 'c')
 
 
 def _is_http_uri(uri):

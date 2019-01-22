@@ -19,7 +19,7 @@ entry_points:
   sleep:
     parameters:
       duration: int
-    command: "sleep {duration}"
+    command: "python sleep.py {duration}"
   test_tracking:
     parameters:
       use_start_run: bool

@@ -9,6 +9,7 @@ prospector[with_pyroma]==0.12.7
 pep8==1.7.1
 pyarrow
 pylint==1.8.2
+# Need to install Java first
 pyspark
 pytest==3.2.1
 pytest-cov==2.6.0
@@ -17,9 +18,11 @@ rstcheck==3.2
 # library on Anaconda catches up to pip
 scikit-learn==0.20.0
 scipy
+# Only installable in Python 3
 tensorflow
-torch
-torchvision
+# Pytorch must be installed with conda
+# torch
+# torchvision
 pysftp
 keras
 attrdict==2.0.0
