@@ -1,3 +1,4 @@
+os: windows
 sudo: true
 language: python
 
@@ -6,87 +7,85 @@ services:
 
 matrix:
   include:
-    - python: 2.7
+    # No TensorFlow available on Python 2.7 for windows as of now, see https://www.tensorflow.org/install/pip#package-location
+    #    - python: 2.7
     - python: 3.6
     - language: r
       dist: trusty
       cache: packages
       before_install:
-        - export NOT_CRAN=true
-        - cd mlflow/R/mlflow
+        - SET NOT_CRAN=true
+        - cd mlflow\R\mlflow
         - Rscript -e 'install.packages("devtools")'
         - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
-        - cd ../../..
+        - cd ..\..\..
       script:
-        - cd mlflow/R/mlflow
+        - cd mlflow\R\mlflow
         - R CMD build .
         - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
         - cd tests
-        - export LINTR_COMMENT_BOT=false
-        - Rscript ../.travis.R
+        - SET LINTR_COMMENT_BOT=false
+        - Rscript ..\.travis.R
       after_success:
-        - export COVR_RUNNING=true
+        - SET COVR_RUNNING=true
         - Rscript -e 'covr::codecov()'
     - language: java
       script:
-        - cd mlflow/java
+        - cd mlflow\java
         - mvn clean package -q
     - language: node_js
       node_js:
         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
       install:
       script:
-        - cd mlflow/server/js
+        - cd mlflow\server\js
         - npm i
         - ./lint.sh
         - npm test -- --coverage
 
 install:
-  - sudo mkdir -p /travis-install
-  - sudo chown travis /travis-install
+
   # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
+  mkdir %homepath\tmp-miniconda
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+      # From https://superuser.com/questions/25538/how-to-download-files-from-command-line-in-windows-like-wget-or-curl
+      certutil.exe -urlcache -split -f "https://repo.continuum.io/miniconda/Miniconda2-latest-Windows-x86_64.exe" %homepath\tmp-miniconda\miniconda.exe
     else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+      certutil.exe -urlcache -split -f "https://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.exe" %homepath\tmp-miniconda\miniconda.exe
     fi
-
-  - bash /travis-install/miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
+    # From https://groups.google.com/a/continuum.io/forum/#!topic/anaconda/yboosm5zxsQ
+  - %homepath\tmp-miniconda\miniconda.exe /S /D=C:\Miniconda
+  - SET PATH="C:\Miniconda\bin:$PATH"
   - conda config --set always_yes yes --set changeps1 no
   # Useful for debugging any issues with conda
   - conda info -a
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
-  - source activate test-environment
+  - conda activate test-environment
   - python --version
   - pip install --upgrade pip
   # Install Python test dependencies only if we're running Python tests
-  - if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
+  - IF DEFINED %TRAVIS_PYTHON_VERSION% (
       travis_wait pip install -r dev-requirements.txt -q;
       travis_wait pip install -r test-requirements.txt -q;
-    fi
+    )
   - pip install .
-  - export MLFLOW_HOME=$(pwd)
-  # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
-  - sudo rm -f /etc/boto.cfg
-  # Install protoc
+  - SET MLFLOW_HOME=$(pwd)
   - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
   - sudo unzip /travis-install/protoc.zip -d /usr
+  # Workaround from https://stackoverflow.com/questions/43264773/pil-dll-load-failed-specified-procedure-could-not-be-found
+  - pip install Pillow==4.0.0
 script:
   - ./lint.sh
-  - sudo ./test-generate-protos.sh
+  - ./test-generate-protos.sh
   - pip list
-  - which mlflow
-  - echo $MLFLOW_HOME
-  - SAGEMAKER_OUT=$(mktemp)
+  - SET SAGEMAKER_OUT="%homepath%\tmp\sagemaker-out"
   - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
       echo "Sagemaker container build succeeded.";
     else
       echo "Sagemaker container build failed, output:";
-      cat $SAGEMAKER_OUT;
+      type %SAGEMAKER_OUT%;
     fi
   # Run tests that don't leverage specific ML frameworks
   - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
