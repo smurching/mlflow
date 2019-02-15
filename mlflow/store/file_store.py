@@ -64,7 +64,7 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
-            self._create_experiment_with_id(name="Default",
+            self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
                                             experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)
         # Create trash folder if needed
@@ -219,13 +219,6 @@ class FileStore(AbstractStore):
             raise MlflowException("Experiment '%s' does not exist." % experiment_id,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         return experiment
-
-    def get_experiment_by_name(self, name):
-        self._check_root_dir()
-        for experiment in self.list_experiments(ViewType.ALL):
-            if experiment.name == name:
-                return experiment
-        return None
 
     def delete_experiment(self, experiment_id):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
