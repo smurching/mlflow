@@ -46,8 +46,11 @@ _configure_mlflow_loggers(root_module_name=__name__)
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param
+log_params = mlflow.tracking.fluent.log_params
 log_metric = mlflow.tracking.fluent.log_metric
+log_metrics = mlflow.tracking.fluent.log_metrics
 set_tag = mlflow.tracking.fluent.set_tag
+set_tags = mlflow.tracking.fluent.set_tags
 log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
 active_run = mlflow.tracking.fluent.active_run

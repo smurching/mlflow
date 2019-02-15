@@ -176,6 +176,19 @@ def active_run():
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
 
+
+def log_metrics(metrics, step=None):
+    pass
+
+
+def log_params(params):
+    pass
+
+
+def set_tags(tags):
+    pass
+
+
 def log_param(key, value):
     """
     Log a parameter under the current run, creating a run if necessary.

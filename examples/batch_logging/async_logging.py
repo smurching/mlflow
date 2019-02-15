@@ -1,39 +1,45 @@
 import mlflow
 
-def main():
-    # Async APIs: data is buffered on the client and eventually flushed to the server
-    # (after n seconds, n bytes, end_run()). Another question here is if the API should be
-    # truly async or just not validate the response (probably truly async?) but I don't think
-    # it matters too much right now.
+def async_example():
+    # In the future, we may implement one or more of the following async logging APIs, in which
+    # data is buffered on the client and eventually flushed to the server (after n seconds, n bytes
+    # logged, calls to end_run()). This could be relevant e.g. for MLlib x MLflow integration, where
     #
-    # Complicates debugging UX to have data logged out of order of program execution (i.e.
-    # if "accuracy" and "learning_rate" are logged below.
+    # It's unclear whether the API should be truly async or simply not validate that network calls
+    # succeed (a truly async API would improve performance at the cost of increased complexity,
+    # e.g. a background thread(s) that makes requests).
     #
-    # We can avoid out-of-order logging by trying to reject the whole request if any individual
-    # values are invalid, but then we have issues when partial data is persisted & the remaining
-    # fails due to e.g. S3 or database issues. But maybe we can assume that to be unlikely (i.e.
-    # use a DB transaction), so enforce a guarantee that data is written all-or-nothing (atomic)
+    # TL;DR: This use case seems well-supported by both a single REST API (LogBatch) and multiple
+    # REST APIs (LogMetrics, SetTags, LogParams), although we can provide nicer behavior with
+    # a single REST API.
     #
-    # If we feel that having atomicity is too difficult, we can alternatively say that if a
-    # request contains invalid data, our response will specify which input metrics/params/tags
-    # were invalid and that the remaining ones may or may not have been written (usually not
-    # written i.e. in the invalid data case, but might be written e.g. in the database failure
-    # case).
+    # Detail:
+    # It's worth noting that the debugging UX becomes complicated if it's possible to have data
+    # logged out of order of program execution (i.e. if "accuracy" and "learning_rate" are logged
+    # but the "my_git_diff" tag is not). This can happen with both a single & multiple batched
+    # logging endpoints - in both cases, unless we allow the user to specify an order
+    # in which to persist elements of their batched logging request & error out on the first failed
+    # attempt to persist a metric/param/tag, and additionally if metrics, params, tags, are split
+    # up across multiple REST endpoints.
     #
-    # Conclusion: if you log things asynchronously, you don't get any guarantees on when
-    # they're actually uploaded relative to the state of your program. For example it's ok
-    # if data gets to the server later than you expect (i.e. while your main thread is doing
-    # something else)
+    # However, we propose that the potential for out-of-order logging in this use case
+    # isn't a dealbreaker for our REST APIs: in general with async logging, you don't get strong
+    # ordering guarantees on when data reaches the server relative to what line of code your program
+    # is executing (i.e. data may reach the server later).
+    #
+    # If we were to make (or implement) stronger guarantees on ordered logging, we might want
+    # to modify our REST API to accept an order in which to log entities (i.e. have users
+    # specify a single ordered list of metrics/params/tags to log) and modify the error behavior to
+    # fail an API request on the first entity that fails to be persisted.
     mlflow.log_metric("accuracy", 0.3, block=False)
-    mlflow.log_param("asdf", "Asdf")
-    mlflow.log_metric("accuracy", 0.5, block=False)
-    mlflow.set_tag("my_git_diff", "some_string_thats_too_long" * 9999999, block=False)
-    mlflow.log_param("learning_rate", 0.5, block=False)
+    mlflow.log_param("l1_ratio", 0.5)
+    mlflow.log_metric("accuracy", 0.9, block=False)
+    mlflow.set_tag("my_git_diff", "a_very_long_string" * 9999999, block=False)
+    mlflow.log_param("learning_rate", 1e-4, block=False)
     # Batch-fluent APIs: convenience wrapper over log_metric, etc that uses a dict
     mlflow.log_metrics({"accuracy": 0.5, "loss": 0.3}, block=False)
     mlflow.log_params({"another_param": "value"}, block=False)
 
 
-
 if __name__ == "__main__":
-    main()
+    async_example()
