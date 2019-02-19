@@ -38,11 +38,12 @@ class ExperimentRunsTableMultiColumnView extends Component {
     metricRanges: PropTypes.object.isRequired,
   };
 
-  getRow({ runId, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
+  getRow({ runId, isParent, hasExpander, expanderOpen, sortedRunIds, displayIndex }) {
     const {
       runInfosByRunId,
       paramsByRunId,
       metricsByRunId,
+      runIdToChildrenIds,
       paramKeyList,
       metricKeyList,
       onCheckbox,
@@ -54,6 +55,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     const runInfo = runInfosByRunId[runId];
     const paramsMap = paramsByRunId[runId];
     const metricsMap = metricsByRunId[runId];
+    const childrenIds = runIdToChildrenIds[runId];
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const selected = runsSelected[runInfo.run_uuid] === true;

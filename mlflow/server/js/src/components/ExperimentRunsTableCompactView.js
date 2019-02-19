@@ -103,19 +103,19 @@ class ExperimentRunsTableCompactView extends PureComponent {
 
   /**
    * Returns a row of table content (i.e. a non-header row) corresponding to a single run.
-   * @param idx Index of run within the unsorted API response (this.props.runInfos)
+   * @param runId ID of run
    * @param isParent If run is a parent run (has nested child runs)
    * @param hasExpander True if run should have an expander for displaying nested child runs
    * @param expanderOpen True if run expander is open
-   * @param childrenIds List of child run IDs for the current run
    * @param sortedRunIds List of all run IDs sorted by the current sort settings
    * @param displayIndex Index of run within sortedRunIds
    */
-  getRow({ runId, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
+  getRow({ runId, isParent, hasExpander, expanderOpen, sortedRunIds, displayIndex }) {
     const {
       runInfosByRunId,
       paramsByRunId,
       metricsByRunId,
+      runIdToChildrenIds,
       onCheckbox,
       sortState,
       runsSelected,
@@ -132,6 +132,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     const runInfo = runInfosByRunId[runId];
     const paramsMap = paramsByRunId[runId];
     const metricsMap = metricsByRunId[runId];
+    const childrenIds = runIdToChildrenIds[runId];
     const selected = runsSelected[runId] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,

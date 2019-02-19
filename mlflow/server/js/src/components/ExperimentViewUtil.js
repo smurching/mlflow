@@ -327,27 +327,17 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRowRenderMetadata(
-    { runInfosByRunId, sortState, paramsByRunId, runIdToChildrenIds, metricsByRunId, tagsByRunId, runsExpanded }) {
+  static getSortedRunIds({sortState, runIdToChildrenIds, paramsByRunId, metricsByRunId, tagsByRunId,
+                          runInfosByRunId}) {
     const parentRows = _.entries(runInfosByRunId).flatMap(([runId, runInfo]) => {
       // Child runs don't have keys in the map, return empty array for them
       if (runIdToChildrenIds[runId] === undefined) {
         return [];
       }
-      let hasExpander = false;
-      let childrenIds = undefined;
-      if (runIdToChildrenIds[runId].length > 0) {
-        hasExpander = true;
-        childrenIds = runIdToChildrenIds[runId];
-      }
       const sortValue = ExperimentViewUtil.computeSortValue(sortState,
         metricsByRunId[runId],
         paramsByRunId[runId], runInfo, tagsByRunId[runId]);
       return [{
-        isParent: true,
-        hasExpander,
-        expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
-        childrenIds,
         runId,
         sortValue,
       }];
@@ -359,21 +349,40 @@ export default class ExperimentViewUtil {
       mergedRows.push(r);
       const childrenIds = runIdToChildrenIds[runId];
       if (childrenIds) {
-        if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
-          const childrenRows = childrenIds.map((childRunId) => {
-            const childRunInfo = runInfosByRunId[childRunId];
-            const sortValue = ExperimentViewUtil.computeSortValue(sortState,
-              metricsByRunId[childRunId],
-              paramsByRunId[childRunId], childRunInfo, tagsByRunId[childRunId]);
-            return { isParent: false, hasExpander: false, sortValue,
-              runId: childRunId };
-          });
-          ExperimentViewUtil.sortRows(childrenRows, sortState);
-          mergedRows.push(...childrenRows);
-        }
+        const childrenRows = childrenIds.map((childRunId) => {
+          const childRunInfo = runInfosByRunId[childRunId];
+          const sortValue = ExperimentViewUtil.computeSortValue(sortState,
+            metricsByRunId[childRunId],
+            paramsByRunId[childRunId], childRunInfo, tagsByRunId[childRunId]);
+          return { sortValue, runId: childRunId };
+        });
+        ExperimentViewUtil.sortRows(childrenRows, sortState);
+        mergedRows.push(...childrenRows);
       }
     });
-    return mergedRows;
+    return mergedRows.map((row) => row.runId);
+  }
+
+  static getRowRenderMetadata({ runInfosByRunId, sortedRunIds, paramsByRunId, runIdToChildrenIds,
+                                metricsByRunId, tagsByRunId, runsExpanded }) {
+    return sortedRunIds.flatMap(runId => {
+      // TODO(sid) this is a bit convoluted, but best way of looking up parent run ID for now
+      let isParent = true;
+      if (runIdToChildrenIds[runId] === undefined) {
+        const parentId = tagsByRunId[runId] && tagsByRunId[runId]['mlflow.parentRunId'];
+        if (!ExperimentViewUtil.isExpanderOpen(runsExpanded, parentId)) {
+          return [];
+        }
+        isParent = false;
+      }
+      const hasExpander = runIdToChildrenIds[runId] && runIdToChildrenIds[runId].length > 0;
+      return [{
+        isParent,
+        hasExpander,
+        expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
+        runId,
+      }];
+    });
   }
 
   /**
