@@ -332,8 +332,10 @@ export default class ExperimentViewUtil {
   static getRowRenderMetadata(
     { runInfosByRunId, sortState, paramsByRunId, runIdToChildrenIds, metricsByRunId, tagsByRunId, runsExpanded }) {
     const parentRows = _.entries(runInfosByRunId).flatMap(([runId, runInfo]) => {
-      // Child runs don't show up in this map, so return empty list
-      if (runIdToChildrenIds[runId] === undefined) return [];
+      // Child runs don't have keys in the map, return empty array for them
+      if (runIdToChildrenIds[runId] === undefined) {
+        return [];
+      }
       let hasExpander = false;
       let childrenIds = undefined;
       if (runIdToChildrenIds[runId].length > 0) {

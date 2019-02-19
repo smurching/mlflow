@@ -316,6 +316,7 @@ const childRunIdsByParentRunUuid = (state = {}, action) => {
       const parentIdToChildren = {};
       treeNodes.forEach((t) => {
         const root = t.findRoot();
+        // Handle child runs that are not part of a cycle
         if (root !== undefined && root.value !== t.value) {
           const old = parentIdToChildren[root.value];
           let newList;
@@ -329,10 +330,14 @@ const childRunIdsByParentRunUuid = (state = {}, action) => {
         } else if (root === undefined) {
           // Represent runs that are part of a cycle as parent runs with empty child run lists
           parentIdToChildren[t.value] = [];
+        } else {
+          // Ensure parent runs at least have an empty list in the dictionary
+          if (parentIdToChildren[root.value] === undefined) {
+            parentIdToChildren[root.value] = [];
+          }
         }
       });
       return {
-        ...state, // TODO do we really need to return old state? everything should be in the new one
         ...parentIdToChildren
       }
     }

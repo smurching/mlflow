@@ -644,9 +644,9 @@ class ExperimentView extends Component {
       this.props.runInfosByRunId,
       this.props.paramKeyFilter.apply(this.props.paramKeyList),
       this.props.metricKeyFilter.apply(this.props.metricKeyList),
-      this.props.paramsList,
-      this.props.metricsList,
-      this.props.tagsList);
+      this.props.paramsByRunId,
+      this.props.metricsByRunId,
+      this.props.tagsByRunId);
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, "runs.csv");
   }
@@ -702,12 +702,12 @@ class ExperimentView extends Component {
   static runInfosToCsv(
     // TODO fix to use runINfosByRUnId, or actually just use runInfos - it's ok to have both
     // a list of runINfos and a lookup based on runId for everything (metrics, params, runINfo)
-    runInfos,
+    runInfosByRunId,
     paramKeyList,
     metricKeyList,
-    paramsList,
-    metricsList,
-    tagsList) {
+    paramsByRunId,
+    metricsByRunId,
+    tagsByRunId) {
     const columns = [
       "Run ID",
       "Name",
@@ -723,18 +723,18 @@ class ExperimentView extends Component {
       columns.push(metricKey);
     });
 
-    const data = runInfos.map((runInfo, index) => {
+    const data = _.map(runInfosByRunId, (runInfo, runId) => {
       const row = [
         runInfo.run_uuid,
-        Utils.getRunName(tagsList[index]), // add run name to csv export row
+        Utils.getRunName(tagsByRunId[runId]), // add run name to csv export row
         runInfo.source_type,
         runInfo.source_name,
         runInfo.user_id,
         runInfo.status,
       ];
 
-      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
-      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
+      const paramsMap = paramsByRunId[runId];
+      const metricsMap = metricsByRunId[runId];
 
       paramKeyList.forEach((paramKey) => {
         if (paramsMap[paramKey]) {
@@ -791,9 +791,13 @@ const mapStateToProps = (state, ownProps) => {
       paramKeysSet.add(param.key);
     });
   });
+  const rInfosById = _.pickBy(state.entities.runInfosByUuid, (runInfo, runId) => {
+    const targetLifecycleStage = lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? 'active' : 'deleted';
+    return runUuids.has(runId) && runInfo.lifecycle_stage === targetLifecycleStage;
+  });
 
   return {
-    runInfosByRunId: state.entities.runInfosByUuid,
+    runInfosByRunId: rInfosById,
     experiment,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
