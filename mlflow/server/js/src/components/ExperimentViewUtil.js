@@ -204,12 +204,10 @@ export default class ExperimentViewUtil {
       && sortState.key === key);
   }
 
-  static computeMetricRanges(metricsByRun) {
-    // TODO(sid)
-    return {};
+  static computeMetricRanges(metricsByRunIds) {
     const ret = {};
-    metricsByRun.forEach(metrics => {
-      metrics.forEach(metric => {
+    _.values(metricsByRunIds).forEach(metricsMap => {
+      _.values(metricsMap).forEach(metric => {
         if (!ret.hasOwnProperty(metric.key)) {
           ret[metric.key] = {min: Math.min(metric.value, metric.value * 0.7), max: metric.value};
         } else {

@@ -62,6 +62,9 @@ class ExperimentView extends Component {
 
   static propTypes = {
     onSearch: PropTypes.func.isRequired,
+    // List of run infos
+    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    // Map of run ID -> RunInfo instance
     runInfosByRunId: PropTypes.object.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
@@ -700,8 +703,6 @@ class ExperimentView extends Component {
    * provided lists.
    */
   static runInfosToCsv(
-    // TODO fix to use runINfosByRUnId, or actually just use runInfos - it's ok to have both
-    // a list of runINfos and a lookup based on runId for everything (metrics, params, runINfo)
     runInfosByRunId,
     paramKeyList,
     metricKeyList,
@@ -797,6 +798,7 @@ const mapStateToProps = (state, ownProps) => {
   });
 
   return {
+    runInfos,
     runInfosByRunId: rInfosById,
     experiment,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),

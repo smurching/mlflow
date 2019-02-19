@@ -206,8 +206,10 @@ const styles = {
 };
 
 const mapStateToProps = (state, ownProps) => {
-  const { metricsList } = ownProps;
-  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsList)};
+  const { metricsByRunIds } = ownProps;
+  const res = {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsByRunIds)};
+  debugger;
+  return res;
 };
 
 export default connect(mapStateToProps)(ExperimentRunsTableMultiColumnView);
