@@ -59,7 +59,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        (event) => onCheckbox(event, childrenIds, displayIndex, sortedRunIds), "td", idx),
+        (event) => onCheckbox(event, displayIndex, sortedRunIds), "td", idx),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid,
         "td"),

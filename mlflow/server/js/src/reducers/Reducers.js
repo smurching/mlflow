@@ -258,6 +258,89 @@ const artifactRootUriByRunUuid = (state = {}, action) => {
   }
 };
 
+class TreeNode {
+  constructor(value) {
+    this.value = value;
+    this.parent = undefined;
+  }
+  /**
+   * Returns the root node. If there is a cycle it will return undefined;
+   */
+  findRoot() {
+    const visited = new Set([this.value]);
+    let current = this;
+    while (current.parent !== undefined) {
+      if (visited.has(current.parent.value)) {
+        return undefined;
+      }
+      visited.add(current.value);
+      current = current.parent;
+    }
+    return current;
+  }
+  isRoot() {
+    return this.findRoot().value === this.value;
+  }
+  isCycle() {
+    return this.findRoot() === undefined;
+  }
+}
+
+
+/**
+ * Reducer that computes the mapping from parent run ID to child run ID. We implement this as a
+ * reducer rather than a pure helper method that operates on state so that the result can be stored
+ * in the Redux store.
+ */
+const childRunIdsByParentRunUuid = (state = {}, action) => {
+  switch (action.type) {
+    case fulfilled(SEARCH_RUNS_API): {
+      const runIdToIdx = {};
+      const runs = action.payload.runs;
+      const runInfos = runs.map(rJson => rJson.info);
+      runInfos.forEach((r, idx) => {
+        runIdToIdx[r.run_uuid] = idx;
+      });
+      const treeNodes = runInfos.map(r => new TreeNode(r.run_uuid));
+      runs.forEach((rJson, idx) => {
+        const tags = rJson.data.tags || [];
+        const parentIdTag = tags.find(tag => tag.key === 'mlflow.parentRunId');
+        if (parentIdTag) {
+          const parentRunIdx = runIdToIdx[parentIdTag.value];
+          if (parentRunIdx !== undefined) {
+            treeNodes[idx].parent = treeNodes[parentRunIdx];
+          }
+        }
+      });
+      // Map of parentRunIds to list of children runs (idx)
+      const parentIdToChildren = {};
+      treeNodes.forEach((t) => {
+        const root = t.findRoot();
+        if (root !== undefined && root.value !== t.value) {
+          const old = parentIdToChildren[root.value];
+          let newList;
+          if (old) {
+            old.push(t.value);
+            newList = old;
+          } else {
+            newList = [t.value];
+          }
+          parentIdToChildren[root.value] = newList;
+        } else if (root === undefined) {
+          // Represent runs that are part of a cycle as parent runs with empty child run lists
+          parentIdToChildren[t.value] = [];
+        }
+      });
+      return {
+        ...state, // TODO do we really need to return old state? everything should be in the new one
+        ...parentIdToChildren
+      }
+    }
+    default:
+      return state;
+  }
+};
+
 const entities = combineReducers({
   experimentsById,
   runInfosByUuid,
@@ -267,6 +350,7 @@ const entities = combineReducers({
   tagsByRunUuid,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
+  childRunIdsByParentRunUuid,
 });
 
 export const getApis = (requestIds, state) => {

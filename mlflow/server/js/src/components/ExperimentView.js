@@ -62,7 +62,7 @@ class ExperimentView extends Component {
 
   static propTypes = {
     onSearch: PropTypes.func.isRequired,
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    runInfosByRunId: PropTypes.object.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
 
@@ -71,12 +71,12 @@ class ExperimentView extends Component {
     // List of all metric keys available in the runs we're viewing
     metricKeyList: PropTypes.arrayOf(String).isRequired,
 
-    // List of list of params in all the visible runs
-    paramsList: PropTypes.arrayOf(Array).isRequired,
-    // List of list of metrics in all the visible runs
-    metricsList: PropTypes.arrayOf(Array).isRequired,
-    // List of tags dictionary in all the visible runs.
-    tagsList: PropTypes.arrayOf(Object).isRequired,
+    // Object of run ID -> Object of param key -> param value in all the visible runs
+    paramsByRunId: PropTypes.object.isRequired,
+    // Object of run ID -> Object of metric key -> latest metric value in all the visible runs
+    metricsByRunId: PropTypes.object.isRequired,
+    // Object of run ID -> Object of tag key -> tag value in all the visible runs
+    tagsByRunId: PropTypes.object.isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -88,6 +88,9 @@ class ExperimentView extends Component {
 
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
+
+    // Map of parent run ID to list of child run IDs
+    runIdToChildrenIds: PropTypes.instanceOf(Object).isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -165,10 +168,10 @@ class ExperimentView extends Component {
     // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
     // prop)
     const newRunsSelected = {};
-    nextProps.runInfos.forEach((rInfo) => {
-      const prevRunSelected = prevState.runsSelected[rInfo.run_uuid];
+    _.toPairs(nextProps.runInfosByRunId).forEach((runId, rInfo) => {
+      const prevRunSelected = prevState.runsSelected[runId];
       if (prevRunSelected) {
-        newRunsSelected[rInfo.run_uuid] = prevRunSelected;
+        newRunsSelected[runId] = prevRunSelected;
       }
     });
     const { searchInput, paramKeyFilter, metricKeyFilter, lifecycleFilter } = nextProps;
@@ -253,7 +256,7 @@ class ExperimentView extends Component {
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
     const {
-      runInfos,
+      runInfosByRunId,
       paramKeyFilter,
       metricKeyFilter,
     } = this.props;
@@ -373,7 +376,7 @@ class ExperimentView extends Component {
           </form>
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
-              {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
+              {_.size(runInfosByRunId)} matching {_.size(runInfosByRunId) === 1 ? 'run' : 'runs'}
             </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare
@@ -431,13 +434,14 @@ class ExperimentView extends Component {
             /> :
             <ExperimentRunsTableCompactView
               onCheckbox={this.onCheckbox}
-              runInfos={this.props.runInfos}
+              runInfosByRunId={this.props.runInfosByRunId}
+              runIdToChildrenIds={this.props.runIdToChildrenIds}
               // Bagged param and metric keys
               paramKeyList={paramKeyList}
               metricKeyList={metricKeyList}
-              paramsList={this.props.paramsList}
-              metricsList={this.props.metricsList}
-              tagsList={this.props.tagsList}
+              paramsByRunId={this.props.paramsByRunId}
+              metricsByRunId={this.props.metricsByRunId}
+              tagsByRunId={this.props.tagsByRunId}
               onCheckAll={this.onCheckAll}
               isAllChecked={this.isAllChecked()}
               onSortBy={this.onSortBy}
@@ -479,17 +483,25 @@ class ExperimentView extends Component {
     this.clearLastCheckboxIndex();
   }
 
+  /** Update state related to the currently-selected set of runs */
+  setSelectedRuns({selectedRuns, lastCheckboxIndex}) {
+    this.setState({
+      runsSelected: selectedRuns,
+      lastCheckboxIndex: lastCheckboxIndex,
+    });
+  }
+
   /**
    * Handler for a click event on a checkbox in the runs table. Handles both clicking individual
    * runs and shift-clicking to select or deselect multiple contiguous runs.
    * @param event Click event
-   * @param childrenIds Child run UUIDs of the current run
    * @param index Index of the current run within sortedRunIds.
    * @param sortedRunIds List of run UUIDs (both visible and collapsed) sorted by the current
    *                     display order.
    */
-  onCheckbox(event, childrenIds, index, sortedRunIds) {
+  onCheckbox(event, index, sortedRunIds) {
     const runUuid = sortedRunIds[index];
+    const childrenIds = this.props.runIdToChildrenIds[runUuid];
     const minCheckboxIndex = this.state.lastCheckboxIndex !== undefined ?
       Math.min(this.state.lastCheckboxIndex, index) : index;
     const maxCheckboxIndex = this.state.lastCheckboxIndex !== undefined ?
@@ -516,14 +528,14 @@ class ExperimentView extends Component {
       childrenIdList.forEach(childRunUuid => runsSelectedState[childRunUuid] = true);
       runsSelectedState[runUuid] = true;
     }
-    this.setState({
-      runsSelected: runsSelectedState,
+    this.setSelectedRuns({
+      selectedRuns: runsSelectedState,
       lastCheckboxIndex: index,
     });
   }
 
   isAllChecked() {
-    return Object.keys(this.state.runsSelected).length === this.props.runInfos.length;
+    return Object.keys(this.state.runsSelected).length === _.size(this.props.runInfosByRunId);
   }
 
   clearLastCheckboxIndex() {
@@ -535,8 +547,8 @@ class ExperimentView extends Component {
       this.setState({runsSelected: {}});
     } else {
       const runsSelected = {};
-      this.props.runInfos.forEach(({run_uuid}) => {
-        runsSelected[run_uuid] = true;
+      _.keys(this.props.runInfosByRunId).forEach(runId => {
+        runsSelected[runId] = true;
       });
       this.setState({runsSelected: runsSelected});
     }
@@ -629,7 +641,7 @@ class ExperimentView extends Component {
 
   onDownloadCsv() {
     const csv = ExperimentView.runInfosToCsv(
-      this.props.runInfos,
+      this.props.runInfosByRunId,
       this.props.paramKeyFilter.apply(this.props.paramKeyList),
       this.props.metricKeyFilter.apply(this.props.metricKeyList),
       this.props.paramsList,
@@ -688,6 +700,8 @@ class ExperimentView extends Component {
    * provided lists.
    */
   static runInfosToCsv(
+    // TODO fix to use runINfosByRUnId, or actually just use runInfos - it's ok to have both
+    // a list of runINfos and a lookup based on runId for everything (metrics, params, runINfo)
     runInfos,
     paramKeyList,
     metricKeyList,
@@ -765,30 +779,28 @@ const mapStateToProps = (state, ownProps) => {
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
-  const metricsList = runInfos.map((runInfo) => {
+  runInfos.forEach((runInfo) => {
     const metrics = Object.values(getLatestMetrics(runInfo.getRunUuid(), state));
     metrics.forEach((metric) => {
       metricKeysSet.add(metric.key);
     });
-    return metrics;
   });
-  const paramsList = runInfos.map((runInfo) => {
+  runInfos.forEach((runInfo) => {
     const params = Object.values(getParams(runInfo.getRunUuid(), state));
     params.forEach((param) => {
       paramKeysSet.add(param.key);
     });
-    return params;
   });
 
-  const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
   return {
-    runInfos,
+    runInfosByRunId: state.entities.runInfosByUuid,
     experiment,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
-    metricsList,
-    paramsList,
-    tagsList,
+    metricsByRunId: state.entities.latestMetricsByRunUuid,
+    paramsByRunId: state.entities.paramsByRunUuid,
+    tagsByRunId: state.entities.tagsByRunUuid,
+    runIdToChildrenIds: state.entities.childRunIdsByParentRunUuid,
   };
 };
 

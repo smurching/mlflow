@@ -205,6 +205,8 @@ export default class ExperimentViewUtil {
   }
 
   static computeMetricRanges(metricsByRun) {
+    // TODO(sid)
+    return {};
     const ret = {};
     metricsByRun.forEach(metrics => {
       metrics.forEach(metric => {
@@ -328,51 +330,20 @@ export default class ExperimentViewUtil {
   }
 
   static getRowRenderMetadata(
-    { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded }) {
-    const runIdToIdx = {};
-    runInfos.forEach((r, idx) => {
-      runIdToIdx[r.run_uuid] = idx;
-    });
-    const treeNodes = runInfos.map(r => new TreeNode(r.run_uuid));
-    tagsList.forEach((tags, idx) => {
-      const parentRunId = tags['mlflow.parentRunId'];
-      if (parentRunId) {
-        const parentRunIdx = runIdToIdx[parentRunId.value];
-        if (parentRunIdx !== undefined) {
-          treeNodes[idx].parent = treeNodes[parentRunIdx];
-        }
-      }
-    });
-    // Map of parentRunIds to list of children runs (idx)
-    const parentIdToChildren = {};
-    treeNodes.forEach((t, idx) => {
-      const root = t.findRoot();
-      if (root !== undefined && root.value !== t.value) {
-        const old = parentIdToChildren[root.value];
-        let newList;
-        if (old) {
-          old.push(idx);
-          newList = old;
-        } else {
-          newList = [idx];
-        }
-        parentIdToChildren[root.value] = newList;
-      }
-    });
-    const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
-      if (!treeNodes[idx].isCycle() && !treeNodes[idx].isRoot()) return [];
-      const runId = runInfos[idx].run_uuid;
+    { runInfosByRunId, sortState, paramsByRunId, runIdToChildrenIds, metricsByRunId, tagsByRunId, runsExpanded }) {
+    const parentRows = _.entries(runInfosByRunId).flatMap(([runId, runInfo]) => {
+      // Child runs don't show up in this map, so return empty list
+      if (runIdToChildrenIds[runId] === undefined) return [];
       let hasExpander = false;
       let childrenIds = undefined;
-      if (parentIdToChildren[runId] && !treeNodes[idx].isCycle()) {
+      if (runIdToChildrenIds[runId].length > 0) {
         hasExpander = true;
-        childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
+        childrenIds = runIdToChildrenIds[runId];
       }
       const sortValue = ExperimentViewUtil.computeSortValue(sortState,
-        ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-        ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
+        metricsByRunId[runId],
+        paramsByRunId[runId], runInfo, tagsByRunId[runId]);
       return [{
-        idx,
         isParent: true,
         hasExpander,
         expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
@@ -386,16 +357,16 @@ export default class ExperimentViewUtil {
     parentRows.forEach((r) => {
       const runId = r.runId;
       mergedRows.push(r);
-      const childrenIdxs = parentIdToChildren[runId];
-      if (childrenIdxs) {
+      const childrenIds = runIdToChildrenIds[runId];
+      if (childrenIds) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
-          const childrenRows = childrenIdxs.map((idx) => {
-            const childRunInfo = runInfos[idx];
+          const childrenRows = childrenIds.map((childRunId) => {
+            const childRunInfo = runInfosByRunId[childRunId];
             const sortValue = ExperimentViewUtil.computeSortValue(sortState,
-              ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-              ExperimentViewUtil.toParamsMap(paramsList[idx]), childRunInfo, tagsList[idx]);
-            return { idx, isParent: false, hasExpander: false, sortValue,
-              runId: childRunInfo.run_uuid };
+              metricsByRunId[childRunId],
+              paramsByRunId[childRunId], childRunInfo, tagsByRunId[childRunId]);
+            return { isParent: false, hasExpander: false, sortValue,
+              runId: childRunId };
           });
           ExperimentViewUtil.sortRows(childrenRows, sortState);
           mergedRows.push(...childrenRows);

@@ -66,13 +66,15 @@ class ExperimentRunsTableCompactView extends PureComponent {
   }
 
   static propTypes = {
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    runInfosByRunId: PropTypes.object.isRequired,
     // List of list of params in all the visible runs
-    paramsList: PropTypes.arrayOf(Array).isRequired,
+    paramsByRunId: PropTypes.object.isRequired,
     // List of list of metrics in all the visible runs
-    metricsList: PropTypes.arrayOf(Array).isRequired,
+    metricsByRunId: PropTypes.object.isRequired,
     // List of tags dictionary in all the visible runs.
-    tagsList: PropTypes.arrayOf(Object).isRequired,
+    tagsByRunId: PropTypes.object.isRequired,
+    // Run ID to children ID map
+    runIdToChildrenIds: PropTypes.object.isRequired,
     // Function which takes one parameter (runId)
     onCheckbox: PropTypes.func.isRequired,
     onCheckAll: PropTypes.func.isRequired,
@@ -109,15 +111,15 @@ class ExperimentRunsTableCompactView extends PureComponent {
    * @param sortedRunIds List of all run IDs sorted by the current sort settings
    * @param displayIndex Index of run within sortedRunIds
    */
-  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
+  getRow({ runId, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
     const {
-      runInfos,
-      paramsList,
-      metricsList,
+      runInfosByRunId,
+      paramsByRunId,
+      metricsByRunId,
       onCheckbox,
       sortState,
       runsSelected,
-      tagsList,
+      tagsByRunId,
       setSortByHandler,
       onExpand,
       paramKeyList,
@@ -127,18 +129,18 @@ class ExperimentRunsTableCompactView extends PureComponent {
       unbaggedParams,
       onRemoveBagged,
     } = this.props;
-    const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
-    const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
-    const runInfo = runInfos[idx];
-    const selected = runsSelected[runInfo.run_uuid] === true;
+    const runInfo = runInfosByRunId[runId];
+    const paramsMap = paramsByRunId[runId];
+    const metricsMap = metricsByRunId[runId];
+    const selected = runsSelected[runId] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        (event) => onCheckbox(event, childrenIds, displayIndex, sortedRunIds), "div"),
+        (event) => onCheckbox(event, displayIndex, sortedRunIds), "div"),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(
-          runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
+          runId, childrenIds), runId, "div")
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "div")
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsByRunId[runId], isParent, "div")
       .forEach((col) => rowContents.push(col));
 
     const unbaggedParamSet = new Set(unbaggedParams);
@@ -168,7 +170,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     });
     if (this.shouldShowBaggedColumn(true)) {
       rowContents.push(
-        <div key={"params-container-cell-" + runInfo.run_uuid}>
+        <div key={"params-container-cell-" + runId}>
           {paramsCellContents}
         </div>);
     }
@@ -197,7 +199,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     if (this.shouldShowBaggedColumn(false)) {
       rowContents.push(
         <div
-          key={"metrics-container-cell-" + runInfo.run_uuid}
+          key={"metrics-container-cell-" + runId}
           className="metric-param-container-cell"
         >
           {metricsCellContents}
@@ -205,7 +207,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
       );
     }
     return {
-      key: runInfo.run_uuid,
+      key: runId,
       contents: rowContents,
       isChild: !isParent,
     };
@@ -346,26 +348,29 @@ class ExperimentRunsTableCompactView extends PureComponent {
 
   render() {
     const {
-      runInfos,
+      runInfosByRunId,
+      runIdToChildrenIds,
       onCheckAll,
       isAllChecked,
       onSortBy,
       sortState,
-      metricsList,
-      paramsList,
-      tagsList,
+      metricsByRunId,
+      paramsByRunId,
+      tagsByRunId,
       runsExpanded,
       unbaggedMetrics,
       unbaggedParams,
     } = this.props;
 
     const rows = ExperimentViewUtil.getRowRenderMetadata({
-      runInfos,
+      runInfosByRunId,
+      runIdToChildrenIds,
       sortState,
-      tagsList,
-      metricsList,
-      paramsList,
+      tagsByRunId,
+      metricsByRunId,
+      paramsByRunId,
       runsExpanded});
+    console.log("got row metadata fam of length " + rows.length);
 
     const sortedRunIds = ExperimentViewUtil.getRunIdsSortedByDisplayOrder(rows);
     const headerCells = [
@@ -556,8 +561,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { metricsList } = ownProps;
-  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsList)};
+  const { metricsByRunId } = ownProps;
+  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsByRunId)};
 };
 
 export default connect(mapStateToProps)(ExperimentRunsTableCompactView);
