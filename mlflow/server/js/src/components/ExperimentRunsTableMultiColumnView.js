@@ -17,15 +17,15 @@ class ExperimentRunsTableMultiColumnView extends Component {
   }
 
   static propTypes = {
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    runInfosByRunId: PropTypes.object.isRequired,
     // List of list of params in all the visible runs
-    paramsList: PropTypes.arrayOf(Array).isRequired,
+    paramsByRunId: PropTypes.object.isRequired,
     // List of list of metrics in all the visible runs
-    metricsList: PropTypes.arrayOf(Array).isRequired,
-    paramKeyList: PropTypes.arrayOf(PropTypes.string),
-    metricKeyList: PropTypes.arrayOf(PropTypes.string),
+    metricsByRunId: PropTypes.object.isRequired,
     // List of tags dictionary in all the visible runs.
-    tagsList: PropTypes.arrayOf(Object).isRequired,
+    tagsByRunId: PropTypes.object.isRequired,
+    // Run ID to children ID map
+    runIdToChildrenIds: PropTypes.object.isRequired,
     // Function which takes one parameter (runId)
     onCheckbox: PropTypes.func.isRequired,
     onCheckAll: PropTypes.func.isRequired,
@@ -38,33 +38,33 @@ class ExperimentRunsTableMultiColumnView extends Component {
     metricRanges: PropTypes.object.isRequired,
   };
 
-  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
+  getRow({ runId, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
     const {
-      runInfos,
-      paramsList,
-      metricsList,
+      runInfosByRunId,
+      paramsByRunId,
+      metricsByRunId,
       paramKeyList,
       metricKeyList,
       onCheckbox,
       runsSelected,
-      tagsList,
+      tagsByRunId,
       onExpand,
       metricRanges,
     } = this.props;
-    const runInfo = runInfos[idx];
-    const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
-    const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
+    const runInfo = runInfosByRunId[runId];
+    const paramsMap = paramsByRunId[runId];
+    const metricsMap = metricsByRunId[runId];
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        (event) => onCheckbox(event, displayIndex, sortedRunIds), "td", idx),
+        (event) => onCheckbox(event, displayIndex, sortedRunIds), "td"),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid,
         "td"),
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "td")
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsByRunId[runId], isParent, "td")
       .forEach((col) => rowContents.push(col));
     paramKeyList.forEach((paramKey) => {
       rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap, "td"));
@@ -135,24 +135,26 @@ class ExperimentRunsTableMultiColumnView extends Component {
 
   render() {
     const {
-      runInfos,
+      runInfosByRunId,
       onCheckAll,
       isAllChecked,
       onSortBy,
       sortState,
-      tagsList,
+      tagsByRunId,
       runsExpanded,
       paramKeyList,
       metricKeyList,
-      paramsList,
-      metricsList
+      runIdToChildrenIds,
+      paramsByRunId,
+      metricsByRunId
     } = this.props;
     const rowMetadatas = ExperimentViewUtil.getRowRenderMetadata({
-      runInfos,
+      runInfosByRunId,
+      runIdToChildrenIds,
       sortState,
-      tagsList,
-      metricsList,
-      paramsList,
+      tagsByRunId,
+      metricsByRunId,
+      paramsByRunId,
       runsExpanded});
 
     const sortedRunIds = ExperimentViewUtil.getRunIdsSortedByDisplayOrder(rowMetadatas);
@@ -206,10 +208,8 @@ const styles = {
 };
 
 const mapStateToProps = (state, ownProps) => {
-  const { metricsByRunIds } = ownProps;
-  const res = {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsByRunIds)};
-  debugger;
-  return res;
+  const { metricsByRunId } = ownProps;
+  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsByRunId)};
 };
 
 export default connect(mapStateToProps)(ExperimentRunsTableMultiColumnView);

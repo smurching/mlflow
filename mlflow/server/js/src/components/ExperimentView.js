@@ -421,10 +421,12 @@ class ExperimentView extends Component {
           {this.state.persistedState.showMultiColumns ?
             <ExperimentRunsTableMultiColumnView
               onCheckbox={this.onCheckbox}
-              runInfos={this.props.runInfos}
-              paramsList={this.props.paramsList}
-              metricsList={this.props.metricsList}
-              tagsList={this.props.tagsList}
+              runInfosByRunId={this.props.runInfosByRunId}
+              runIdToChildrenIds={this.props.runIdToChildrenIds}
+              paramsList={this.props.paramsByRunId}
+              paramsByRunId={this.props.paramsByRunId}
+              metricsByRunId={this.props.metricsByRunId}
+              tagsByRunId={this.props.tagsByRunId}
               paramKeyList={paramKeyList}
               metricKeyList={metricKeyList}
               onCheckAll={this.onCheckAll}

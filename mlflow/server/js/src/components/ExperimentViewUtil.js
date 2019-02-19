@@ -393,13 +393,6 @@ export default class ExperimentViewUtil {
     });
   }
 
-  static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {
-    const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
-      { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded });
-    const sortedRunIds = mergedRows.map(mergedRow => mergedRow.runId);
-    return mergedRows.map((rowMetadata) => getRow({...rowMetadata, sortedRunIds}));
-  }
-
   static renderRows(rows) {
     return rows.map(row => {
       const style = row.isChild ? { backgroundColor: "#fafafa" } : {};

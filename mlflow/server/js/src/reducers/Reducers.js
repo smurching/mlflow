@@ -296,7 +296,7 @@ const childRunIdsByParentRunUuid = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(SEARCH_RUNS_API): {
       const runIdToIdx = {};
-      const runs = action.payload.runs;
+      const runs = action.payload.runs || [];
       const runInfos = runs.map(rJson => rJson.info);
       runInfos.forEach((r, idx) => {
         runIdToIdx[r.run_uuid] = idx;
