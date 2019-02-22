@@ -15,6 +15,10 @@ export class RequestStateWrapper extends Component {
     // in the error state. The function can choose to render an error view depending on the
     // type of errors received. If undefined is returned, then render the AppErrorBoundary view.
     errorRenderFunc: PropTypes.func,
+    // (requests) => React Node.
+    // This function is called to render a view (e.g. a spinner) while requests are pending. If
+    // unspecified, a default loading view will be rendered.
+    pendingRenderFunc: PropTypes.func,
   };
 
   static defaultProps = {
@@ -62,6 +66,9 @@ export class RequestStateWrapper extends Component {
     }
     if (this.props.shouldOptimisticallyRender) {
       return children;
+    }
+    if (this.props.pendingRenderFunc) {
+      return this.props.pendingRenderFunc(this.props.requests);
     }
     return (
       <div className="RequestStateWrapper-spinner">

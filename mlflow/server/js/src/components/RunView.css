@@ -162,7 +162,7 @@ textarea.run-command {
 .RunView .top-row {
   text-align: center;
   border-bottom: none;
-  border-top: none;
+  border-top: 1px solid #e2e2e2;;
 }
 
 .RunView .bottom-row {
@@ -172,4 +172,8 @@ textarea.run-command {
 
 .RunView .left-border {
   border-left: 1px solid #e2e2e2;
+}
+
+.RunView .right-border {
+  border-right: 1px solid #e2e2e2;
 }

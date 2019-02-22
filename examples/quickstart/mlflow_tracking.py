@@ -14,9 +14,7 @@ if __name__ == "__main__":
 
     if not os.path.exists("outputs"):
         os.makedirs("outputs")
-    if not os.path.exists("outputs/blah"):
-        os.makedirs("outputs/blah")
-    with open("outputs/blah/test.txt", "w") as f:
+    with open("outputs/test.txt", "w") as f:
         f.write("hello world!")
 
     log_artifacts("outputs")

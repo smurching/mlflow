@@ -1,23 +1,13 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import {
-  getBasename, getExtension, IMAGE_EXTENSIONS,
-  TEXT_EXTENSIONS
-} from '../utils/FileUtils';
 import { getModelText } from '../reducers/Reducers';
-import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
-import { decorators, Treebeard } from 'react-treebeard';
-import bytes from 'bytes';
 import './ArtifactView.css';
-import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
-import spinner from '../static/mlflow-spinner.png';
-import {listModelsApi} from "../Actions";
-import ExperimentViewUtil from "./ExperimentViewUtil";
 import yaml from 'yaml-js';
-import JSONFormatter from 'json-formatter-js'
 import ReactJson from 'react-json-view'
 import { Table } from 'react-bootstrap';
+import Utils from "../utils/Utils";
+import _ from "lodash";
 
 class RunModelsView extends Component {
   constructor(props) {
@@ -26,8 +16,14 @@ class RunModelsView extends Component {
 
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
-    // Array of text of MLModel files
-    modelTextArray: PropTypes.arrayOf(PropTypes.string).isRequired,
+    // Array of objects of the form:
+    // {
+    //   path: string,
+    //   mlModelFile: string,
+    // }
+    // where `mlModelFile` is the contents of a yaml MLModel file and `path` is the path
+    // to the enclosing model directory
+    modelMetadatas: PropTypes.arrayOf(PropTypes.object).isRequired,
     // artifactRootUri: PropTypes.string.isRequired,
   };
 
@@ -36,12 +32,43 @@ class RunModelsView extends Component {
   };
 
   parseModelFile(text) {
+    if (!text) {
+      return {};
+    }
     return yaml.load(text);
   }
 
+  getModelDeployText(modelMetadata) {
+    const parsed = this.parseModelFile(modelMetadata.fileContents);
+    if (!_.has(parsed.flavors, "python_function") && !_.has(parsed.flavors, "mleap")) {
+      return (
+        <div>
+          This model cannot be deployed via the MLflow CLI as it has neither of the supported
+          flavors ("python_function" or "mleap").
+        </div>
+      )
+    }
+    const localServeCommand = "mlflow pyfunc serve -m " + modelMetadata.parentDir + " -r " +
+      parsed.run_id;
+    const sagemakerCommand = "mlflow sagemaker deploy -m " + modelMetadata.parentDir + " -r " +
+      parsed.run_id + "-a `model-name`";
+    const azureMLCommand = "mlflow azureml build-image -m " + modelMetadata.parentDir +
+      " -r " + parsed.run_id + " -w `workspace-name`";
+    return (
+      <div>
+        Serve locally:
+        <textarea className="run-command text-area" value={localServeCommand} readOnly/>
+        Deploy to SageMaker:
+        <textarea className="run-command text-area" value={sagemakerCommand} readOnly/>
+        Build image for AzureML:
+        <textarea className="run-command text-area" value={azureMLCommand} readOnly/>
+      </div>
+    )
+  }
+
   render() {
-    const { modelTextArray } = this.props;
-    if (!modelTextArray || modelTextArray.length === 0) {
+    const { modelMetadatas } = this.props;
+    if (!modelMetadatas || modelMetadatas.length === 0) {
       return (<div className="empty-artifact-outer-container">
         <div className="empty-artifact-container">
           <div>
@@ -56,31 +83,38 @@ class RunModelsView extends Component {
       </div>);
     }
 
-    const modelRows = modelTextArray.map((modelText) => {
-      const parsed = this.parseModelFile(modelText);
+    const modelRows = modelMetadatas.map((modelMetadata, i) => {
+      const parsed = this.parseModelFile(modelMetadata.fileContents);
       const flavors = parsed.flavors || {};
-      return <tr>
-        <td>
+      return <tr key={"model-row-" + i}>
+        <td className="left-border">{Utils.utcStringToLocalTime(parsed.utc_time_created)}</td>
+        <td className="left-border">
           <ReactJson
             displayDataTypes={false}
             src={flavors}
             collapsed={1}
             enableClipboard={false}
             displayObjectSize={false}
+            name={false}
           />
         </td>
-        <td className="left-border">{parsed.run_id}</td>
-        <td className="left-border">{parsed.utc_time_created}</td>
+        <td className="left-border right-border" style={{minWidth: 600}}>
+          {this.getModelDeployText(modelMetadata)}
+        </td>
       </tr>
     });
     return (
-     <Table style={{width: "calc(100% - 128px)"}}>
-       <tr className="top-row">
-         <th>Flavors</th>
-         <th className="left-border">Run ID</th>
-         <th className="left-border">Time Created</th>
-       </tr>
-       {modelRows}
+     <Table>
+       <thead>
+         <tr className="top-row">
+           <th className="left-border">Time Created</th>
+           <th className="left-border">Flavors</th>
+           <th className="left-border right-border">Deploy Model</th>
+         </tr>
+       </thead>
+       <tbody>
+         {modelRows}
+       </tbody>
      </Table>
     );
   }
@@ -88,7 +122,7 @@ class RunModelsView extends Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { runUuid } = ownProps;
-  return {modelTextArray: getModelText(runUuid, state)};
+  return {modelMetadatas: getModelText(runUuid, state)};
 };
 
 export default connect(mapStateToProps)(RunModelsView);

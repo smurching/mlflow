@@ -79,6 +79,14 @@ class Utils {
     return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
   }
 
+  static utcStringToLocalTime(utcTimestamp) {
+    if (utcTimestamp === undefined) {
+      return '(unknown)';
+    }
+    const d = new Date(utcTimestamp + " UTC");
+    return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
+  }
+
   /**
    * Format a duration given in milliseconds.
    *

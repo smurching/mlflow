@@ -4,13 +4,12 @@ import RunModelsView from './RunModelsView';
 import { getUUID, listModelsApi } from '../Actions';
 import { connect } from 'react-redux';
 import RequestStateWrapper from './RequestStateWrapper';
+import spinner from '../static/mlflow-spinner.png';
 
 class RunModelsPage extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     listModels: PropTypes.func.isRequired,
-    // For now, assume isHydrated is always true.
-    isHydrated: PropTypes.bool,
   };
 
   state = {
@@ -21,9 +20,18 @@ class RunModelsPage extends Component {
     this.props.listModels(this.props.runUuid, undefined, this.state.listModelsRequestId);
   }
 
+  pendingRenderFunc() {
+    return (<div>
+      <img alt="" className="loading-spinner" src={spinner}/>
+      {' '}loading...
+    </div>);
+  }
+
   render() {
-    // If not hydrated then try to get the data before rendering this view.
-    return <RequestStateWrapper requestIds={[this.state.listModelsRequestId]}>
+    return <RequestStateWrapper
+      requestIds={[this.state.listModelsRequestId]}
+      pendingRenderFunc={this.pendingRenderFunc}
+    >
       <RunModelsView runUuid={this.props.runUuid}/>
     </RequestStateWrapper>
   }

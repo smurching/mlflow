@@ -115,8 +115,7 @@ const getArtifact = (runUuid, path) => {
 
 // Returns a promise that resolves with the paths of all files under the current path, listed
 // recursively
-const recursiveListArtifacts = (runUuid, path) => {
-  console.log("Recursively listing files under " + JSON.stringify(path));
+const recursiveGetArtifact = (runUuid, path, targetFilename) => {
   return new Promise((resolve, reject) => {
     return MlflowService.listArtifacts({
       data: {
@@ -127,16 +126,20 @@ const recursiveListArtifacts = (runUuid, path) => {
         const recursiveListPromises = files.flatMap((responseItem) => {
           if (responseItem.is_dir) {
             // Make recursive call, which will return all values under the directory in a promise
-            return [recursiveListArtifacts(runUuid, responseItem.path)];
+            return [recursiveGetArtifact(runUuid, responseItem.path, targetFilename)];
           }
-          if (getBasename(responseItem.path).toLowerCase() === "mlmodel") {
-            return [getArtifact(runUuid, responseItem.path)]
+          if (getBasename(responseItem.path).toLowerCase() === targetFilename) {
+            return [getArtifact(runUuid, responseItem.path).then((fileContents) => {
+              return {
+                fileContents,
+                parentDir: path,
+              }
+            })]
           }
           return [];
         });
         Promise.all(recursiveListPromises).then((values) => {
-          console.log("Resolving all recursive promises with values " + _.flattenDeep(values));
-          resolve(_.flattenDeep(values))
+          resolve(_.flattenDeep(values));
         });
       },
       error: xhr => {
@@ -152,7 +155,7 @@ const recursiveListArtifacts = (runUuid, path) => {
 
 export const LIST_MODELS_API = 'LIST_MODELS_API';
 export const listModelsApi = (runUuid, path, id = getUUID()) => {
-  const listModelsPromise = recursiveListArtifacts(runUuid, path);
+  const listModelsPromise = recursiveGetArtifact(runUuid, path, "mlmodel");
 
   return {
     type: LIST_MODELS_API,
