@@ -41,6 +41,21 @@ class RunModelsView extends Component {
 
   render() {
     const { modelTextArray } = this.props;
+    if (!modelTextArray || modelTextArray.length === 0) {
+      return (<div className="empty-artifact-outer-container">
+        <div className="empty-artifact-container">
+          <div>
+          </div>
+          <div>
+            <div className="no-artifacts">No Models Recorded</div>
+            <div className="no-artifacts-info">
+              Use the log_model APIs to record models from MLflow runs.
+            </div>
+          </div>
+        </div>
+      </div>);
+    }
+
     const modelRows = modelTextArray.map((modelText) => {
       const parsed = this.parseModelFile(modelText);
       const flavors = parsed.flavors || {};

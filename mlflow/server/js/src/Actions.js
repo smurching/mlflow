@@ -123,7 +123,8 @@ const recursiveListArtifacts = (runUuid, path) => {
         run_uuid: runUuid, path: path
       },
       success: response => {
-        const recursiveListPromises = response.files.flatMap((responseItem) => {
+        const files = response.files || [];
+        const recursiveListPromises = files.flatMap((responseItem) => {
           if (responseItem.is_dir) {
             // Make recursive call, which will return all values under the directory in a promise
             return [recursiveListArtifacts(runUuid, responseItem.path)];

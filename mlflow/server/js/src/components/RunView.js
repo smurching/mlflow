@@ -344,16 +344,6 @@ class RunView extends Component {
             null
           }
         </div>
-        {/*<div>*/}
-          {/*<h2 onClick={() => this.onClickExpander(ARTIFACTS_KEY)} className="table-name">*/}
-            {/*<span><i className={`fa ${this.getExpanderClassName(ARTIFACTS_KEY)}`}/></span>*/}
-            {/*{' '}Artifacts*/}
-          {/*</h2>*/}
-          {/*{this.state.showArtifacts ?*/}
-            {/*<ArtifactPage runUuid={this.props.runUuid} isHydrated/> :*/}
-            {/*null*/}
-          {/*}*/}
-        {/*</div>*/}
         <div>
           <h2 onClick={() => this.onClickExpander(MODELS_KEY)} className="table-name">
             <span><i className={`fa ${this.getExpanderClassName(MODELS_KEY)}`}/></span>
@@ -361,6 +351,16 @@ class RunView extends Component {
           </h2>
           {this.state.showModels ?
             <RunModelsPage runUuid={this.props.runUuid} isHydrated/> :
+            null
+          }
+        </div>
+        <div>
+          <h2 onClick={() => this.onClickExpander(ARTIFACTS_KEY)} className="table-name">
+            <span><i className={`fa ${this.getExpanderClassName(ARTIFACTS_KEY)}`}/></span>
+            {' '}Artifacts
+          </h2>
+          {this.state.showArtifacts ?
+            <ArtifactPage runUuid={this.props.runUuid} isHydrated/> :
             null
           }
         </div>
