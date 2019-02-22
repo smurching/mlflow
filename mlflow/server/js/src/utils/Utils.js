@@ -4,6 +4,7 @@ import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
+import {getRequestHeaders} from "../setupAjaxHeaders";
 
 class Utils {
   /**
@@ -233,6 +234,22 @@ class Utils {
 
   static getRequestWithId(requests, requestId) {
     return requests.find((r) => r.id === requestId);
+  }
+
+  static getSrc(path, runUuid) {
+    const basePath = "get-artifact";
+    return `${basePath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
+  };
+
+  static fetchArtifacts(path, runUuid) {
+    const getArtifactRequest = new Request(Utils.getSrc(path, runUuid), {
+      method: 'GET',
+      redirect: 'follow',
+      headers: new Headers(getRequestHeaders(document.cookie))
+    });
+    return fetch(getArtifactRequest).then((response) => {
+      return response.blob();
+    });
   }
 }
 

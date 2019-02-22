@@ -142,3 +142,34 @@ textarea.run-command {
 .ReactModal__Overlay--before-close{
     opacity: 0;
 }
+
+.RunView input[type=checkbox] {
+  width: auto;
+}
+
+.RunView th {
+  background-color: #fafafa;
+  color: #888888;
+  font-weight: 500;
+}
+
+.RunView td, .RunView th {
+  border-top: 1px solid #e2e2e2;
+  border-bottom: 1px solid #e2e2e2;
+  padding: 4px;
+}
+
+.RunView .top-row {
+  text-align: center;
+  border-bottom: none;
+  border-top: none;
+}
+
+.RunView .bottom-row {
+  text-align: left;
+  border-top: none;
+}
+
+.RunView .left-border {
+  border-left: 1px solid #e2e2e2;
+}

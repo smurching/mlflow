@@ -8,6 +8,8 @@ import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { Dropdown, MenuItem } from 'react-bootstrap';
 import ArtifactPage from './ArtifactPage';
+import RunModelsPage from './RunModelsPage';
+
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
@@ -23,6 +25,7 @@ const NOTES_KEY = 'notes';
 const PARAMETERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
 const ARTIFACTS_KEY = 'artifacts';
+const MODELS_KEY = 'models';
 const TAGS_KEY = 'tags';
 
 class RunView extends Component {
@@ -59,6 +62,7 @@ class RunView extends Component {
     showMetrics: true,
     showArtifacts: true,
     showTags: true,
+    showModels: false,
     showRunRenameModal: false,
   };
 
@@ -84,6 +88,10 @@ class RunView extends Component {
         this.setState({ showArtifacts: !this.state.showArtifacts });
         return;
       }
+      case MODELS_KEY: {
+        this.setState({ showModels: !this.state.showModels });
+        return;
+      }
       default:
     }
   }
@@ -104,6 +112,9 @@ class RunView extends Component {
       }
       case ARTIFACTS_KEY: {
         return this.state.showArtifacts ? 'fa-caret-down' : 'fa-caret-right';
+      }
+      case MODELS_KEY: {
+        return this.state.showModels ? 'fa-caret-down' : 'fa-caret-right';
       }
       default: {
         return null;
@@ -333,16 +344,26 @@ class RunView extends Component {
             null
           }
         </div>
-          <div>
-            <h2 onClick={() => this.onClickExpander(ARTIFACTS_KEY)} className="table-name">
-              <span><i className={`fa ${this.getExpanderClassName(ARTIFACTS_KEY)}`}/></span>
-              {' '}Artifacts
-            </h2>
-            {this.state.showArtifacts ?
-              <ArtifactPage runUuid={this.props.runUuid} isHydrated/> :
-              null
-            }
-          </div>
+        {/*<div>*/}
+          {/*<h2 onClick={() => this.onClickExpander(ARTIFACTS_KEY)} className="table-name">*/}
+            {/*<span><i className={`fa ${this.getExpanderClassName(ARTIFACTS_KEY)}`}/></span>*/}
+            {/*{' '}Artifacts*/}
+          {/*</h2>*/}
+          {/*{this.state.showArtifacts ?*/}
+            {/*<ArtifactPage runUuid={this.props.runUuid} isHydrated/> :*/}
+            {/*null*/}
+          {/*}*/}
+        {/*</div>*/}
+        <div>
+          <h2 onClick={() => this.onClickExpander(MODELS_KEY)} className="table-name">
+            <span><i className={`fa ${this.getExpanderClassName(MODELS_KEY)}`}/></span>
+            {' '}Models
+          </h2>
+          {this.state.showModels ?
+            <RunModelsPage runUuid={this.props.runUuid} isHydrated/> :
+            null
+          }
+        </div>
       </div>
     );
   }

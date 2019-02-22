@@ -4,6 +4,7 @@ import {
   fulfilled, GET_EXPERIMENT_API, GET_RUN_API, isFulfilledApi, isPendingApi,
   isRejectedApi,
   LIST_ARTIFACTS_API,
+  LIST_MODELS_API,
   LIST_EXPERIMENTS_API, OPEN_ERROR_MODAL, SEARCH_RUNS_API, SET_TAG_API,
 } from '../Actions';
 import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
@@ -240,6 +241,25 @@ const artifactsByRunUuid = (state = {}, action) => {
   }
 };
 
+const modelTextByRunUuid = (state = {}, action) => {
+  switch (action.type) {
+    case fulfilled(LIST_MODELS_API): {
+      const runUuid = action.meta.runUuid;
+      const models = action.payload;
+      return {
+        ...state,
+        [runUuid]: models,
+      }
+    }
+    default:
+      return state;
+  }
+};
+
+export const getModelText = (runUuid, state) => {
+  return state.entities.modelTextByRunUuid[runUuid];
+};
+
 export const getArtifactRootUri = (runUuid, state) => {
   return state.entities.artifactRootUriByRunUuid[runUuid];
 };
@@ -267,6 +287,7 @@ const entities = combineReducers({
   tagsByRunUuid,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
+  modelTextByRunUuid,
 });
 
 export const getApis = (requestIds, state) => {

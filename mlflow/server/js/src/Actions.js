@@ -1,5 +1,8 @@
 import { MlflowService } from './sdk/MlflowService';
 import ErrorCodes from './sdk/ErrorCodes';
+import _ from 'lodash';
+import Utils from "./utils/Utils";
+import { getBasename } from "./utils/FileUtils";
 
 export const isPendingApi = (action) => {
   return action.type.endsWith("_PENDING");
@@ -94,6 +97,65 @@ export const listArtifactsApi = (runUuid, path, id = getUUID()) => {
     payload: wrapDeferred(MlflowService.listArtifacts, {
       run_uuid: runUuid, path: path
     }),
+    meta: { id: id, runUuid: runUuid, path: path },
+  };
+};
+
+const getArtifact = (runUuid, path) => {
+  return new Promise((resolve) => {
+    Utils.fetchArtifacts(path, runUuid).then((blob) => {
+      const fileReader = new FileReader();
+      fileReader.onload = (event) => {
+        resolve(event.target.result);
+      };
+      return fileReader.readAsText(blob);
+    });
+  })
+};
+
+// Returns a promise that resolves with the paths of all files under the current path, listed
+// recursively
+const recursiveListArtifacts = (runUuid, path) => {
+  console.log("Recursively listing files under " + JSON.stringify(path));
+  return new Promise((resolve, reject) => {
+    return MlflowService.listArtifacts({
+      data: {
+        run_uuid: runUuid, path: path
+      },
+      success: response => {
+        const recursiveListPromises = response.files.flatMap((responseItem) => {
+          if (responseItem.is_dir) {
+            // Make recursive call, which will return all values under the directory in a promise
+            return [recursiveListArtifacts(runUuid, responseItem.path)];
+          }
+          if (getBasename(responseItem.path).toLowerCase() === "mlmodel") {
+            return [getArtifact(runUuid, responseItem.path)]
+          }
+          return [];
+        });
+        Promise.all(recursiveListPromises).then((values) => {
+          console.log("Resolving all recursive promises with values " + _.flattenDeep(values));
+          resolve(_.flattenDeep(values))
+        });
+      },
+      error: xhr => {
+        console.error("XHR failed", xhr);
+        // We can't throw the XHR itself because it looks like a promise to the
+        // redux-promise-middleware.
+        reject(new ErrorWrapper(xhr));
+      }
+    });
+  });
+};
+
+
+export const LIST_MODELS_API = 'LIST_MODELS_API';
+export const listModelsApi = (runUuid, path, id = getUUID()) => {
+  const listModelsPromise = recursiveListArtifacts(runUuid, path);
+
+  return {
+    type: LIST_MODELS_API,
+    payload: listModelsPromise,
     meta: { id: id, runUuid: runUuid, path: path },
   };
 };

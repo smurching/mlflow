@@ -31,6 +31,7 @@ class LocalArtifactRepository(ArtifactRepository):
             if artifact_path else self.artifact_uri
         if not self.get_path_module().exists(artifact_dir):
             mkdir(artifact_dir)
+        print("Copying tree from %s to %s" % (local_dir, artifact_dir))
         dir_util.copy_tree(src=local_dir, dst=artifact_dir)
 
     def list_artifacts(self, path=None):
