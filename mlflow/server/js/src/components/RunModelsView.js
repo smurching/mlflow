@@ -51,7 +51,7 @@ class RunModelsView extends Component {
     const localServeCommand = "mlflow pyfunc serve -m " + modelMetadata.parentDir + " -r " +
       parsed.run_id;
     const sagemakerCommand = "mlflow sagemaker deploy -m " + modelMetadata.parentDir + " -r " +
-      parsed.run_id + "-a `model-name`";
+      parsed.run_id + " -a `sagemaker-app-name`";
     const azureMLCommand = "mlflow azureml build-image -m " + modelMetadata.parentDir +
       " -r " + parsed.run_id + " -w `workspace-name`";
     return (
