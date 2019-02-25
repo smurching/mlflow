@@ -22,7 +22,7 @@ import yaml
 
 import mlflow
 from mlflow.utils.file_utils import TempDir
-
+from mlflow.tracking.utils import _get_store
 
 class Model(object):
     """An MLflow Model that can support multiple model flavors."""
@@ -72,3 +72,26 @@ class Model(object):
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+
+
+def register(name, run_id, path):
+    """
+    Register the model identified by the specified (run ID, path) under the provided name
+    :param name: Name to register the model under
+    :param run_id: Run ID of model
+    :param path: Artifact path of model within run
+    :return: Tuple (version, model_uuid) where version
+    """
+    return _get_store().register_model(model_name=name, run_id=run_id, path=path)
+
+
+def deploy(model_id, endpoint_name, deploy_target, deploy_args):
+    return _get_store().deploy_model(
+        model_id=model_id, endpoint_name=endpoint_name, deploy_target=deploy_target,
+        deploy_args=deploy_args)
+
+def list():
+    return _get_store().list_models()
+
+def get(model_id):
+    return _get_store().get_model(model_id=model_id)

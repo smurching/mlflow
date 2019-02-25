@@ -276,6 +276,216 @@ service MlflowService {
       rpc_doc_title: "Get Metric History",
     };
   }
+
+  // Register a model for deployment by the tracking server
+  //
+  rpc registerModel (RegisterModel) returns (RegisterModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/models/register"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Register Model",
+    };
+  }
+
+  // List models registered with the tracking server
+  //
+  rpc listModels (ListModels) returns (ListModels.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/models"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Models",
+    };
+  }
+
+  // Get info about a specific model registered with the tracking server
+  rpc getModel (GetModel) returns (GetModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/get-model"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Model",
+    };
+  }
+
+  // Get a list of supported deployment targets from the server
+  //
+  rpc getDeploymentTargets (GetDeploymentTargets) returns (GetDeploymentTargets.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/models/deployment-targets"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Deployment Targets",
+    };
+  }
+
+  // Deploy a registered model to an endpoint
+  //
+  rpc deployModel (DeployModel) returns (DeployModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/models/deploy"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Deploy Model",
+    };
+  }
+
+  // Create an endpoint to which we can deploy models
+  //
+  rpc createEndpoint (CreateEndpoint) returns (CreateEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/endpoints"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Create Endpoint",
+    };
+  }
+
+  // List endpoints to which we can deploy models
+  //
+  rpc listEndpoints (ListEndpoints) returns (ListEndpoints.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/endpoints"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Endpoints",
+    };
+  }
+
+
+}
+
+message Model {
+  // Data about where the model is stored
+  optional string run_id = 1;
+  optional string path = 2;
+  // Data stored by server
+  // UUID of model, assigned by server. Can be used to reference model
+  optional string model_id = 3;
+  // Model name & version (autoincrementing int). (name, version) can be used to reference model
+  // as well
+  optional string name = 4;
+  optional int64 version = 5;
+}
+
+enum EndpointStatus {
+  ENDPOINT_STOPPED = 1;
+  ENDPOINT_PENDING = 2;
+  ENDPOINT_RUNNING = 3;
+  ENDPOINT_TERMINATING = 4;
+}
+
+message Endpoint {
+  // Public URL of the endpoint
+  optional string url = 1;
+  // Name of the endpoint, e.g. "churn prediction". Acts as a unique identifier across all endpoints
+  optional string name = 2;
+  // The model currently associated with the endpoint
+  optional Model model = 3;
+  // Status of the endpoint (running, stopped)
+  optional EndpointStatus status = 4;
+}
+
+message GetModel {
+  optional string model_id = 1;
+  message Response {
+    // Model entity
+    optional Model model = 1;
+    // List of endpoints with which the current model is associated
+    repeated Endpoint endpoints = 2;
+  }
+}
+
+// Describe a single endpoint
+message GetEndpoint {
+  optional string name = 1;
+  message Response {
+    optional Endpoint endpoint = 1;
+  }
+}
+
+message RegisterModel {
+  optional string run_id = 1;
+  optional string path = 2;
+  optional string name = 3;
+
+  message Response {
+    optional string model_id = 1;
+    optional int64 version = 2;
+  }
+}
+
+message DeploymentTarget {
+  // Name of deployment target, e.g. "sagemaker"
+  optional string name = 1;
+}
+
+message GetDeploymentTargets {
+  message Response {
+    repeated DeploymentTarget targets = 1;
+  }
+}
+
+// Keyword arguments for model deployment
+message DeployArg {
+  optional string key = 1;
+  optional string value = 2;
+}
+
+// Create a uniquely-named endpoint to which we can deploy a model. Note that the endpoint is
+// simply a named entity with a history. Its URL etc can change (e.g. if you have existing
+// endpoints on SageMaker and want to update them to run on Databricks, that's possible).
+message CreateEndpoint {
+  optional string name = 1;
+  // Internally endpoint will get an ID (in case name becomes non-unique later on) but we'll just
+  // use the name everywhere in our API - which might actually prevent us from having non-unique
+  // names later on.
+  message Response {
+  }
+}
+
+// Deploy a model to an (existing) endpoint
+message DeployModel {
+  optional string model_id = 1;
+  optional string endpoint_name = 2;
+  optional DeploymentTarget deploy_target = 3;
+  repeated DeployArg deploy_args = 4;
+  message Response {
+  }
+}
+
+message ListEndpoints {
+  message Response {
+    repeated Endpoint endpoints = 1;
+  }
+}
+
+message ListModels {
+  message Response {
+    repeated Model models = 1;
+  }
 }
 
 // View type for ListExperiments query.

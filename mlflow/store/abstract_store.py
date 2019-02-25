@@ -208,3 +208,79 @@ class AbstractStore:
         """
         runs = self.search_runs([experiment_id], [], run_view_type)
         return [run.info for run in runs]
+
+    @abstractmethod
+    def register_model(self, model_name, run_id, path):
+        """
+        Register a single model with the model registry.
+        :param model_name: Unique name of the model
+        :param run_id: Run ID associated with model
+        :param path: Path to model within artifact store for run
+        :return: Tuple (model_id: string, version: int)
+        """
+        pass
+
+    @abstractmethod
+    def create_endpoint(self, endpoint_name):
+        """
+        Register an endpoint with the model registry
+        :param endpoint_name: String name of endpoint
+        """
+        pass
+
+    @abstractmethod
+    def get_deployment_targets(self):
+        """
+        Return a list of deployment targets
+        :return: List of valid deployment target arguments for deploy_model
+        """
+        pass
+
+    @abstractmethod
+    def deploy_model(self, model_id, endpoint_name, deploy_target, deploy_args):
+        """
+        Deploy a model to an endpoint.
+        :param model_id: Id of model to deploy (string)
+        :param endpoint_name: Name of endpoint to deploy to
+        :param deploy_target: Deployment target ("sagemaker", "databricks", etc)
+        :param deploy_args: Dict of key-value argument pairs to pass to deployment logic
+        :return: None
+        """
+        pass
+
+    @abstractmethod
+    def get_endpoint(self, endpoint_name):
+        """
+        Describe an endpoint.
+        :param endpoint_name: Name of endpoint to describe
+        :return: Endpoint(url, name, model, status)
+        """
+        pass
+
+    @abstractmethod
+    def get_model(self, model_id):
+        """
+        Describe a model
+        :param model_id: ID of model to describe (not name, since there can be multiple model
+                         versions under the same name, unlike endpoints - this is kinda weird
+                         though).
+        :return: Model(run_id, path, model_id, name, version)
+        """
+        pass
+
+
+    @abstractmethod
+    def list_models(self):
+        """
+        List all models
+        :return: List[Model] - latest version of each model.
+        """
+        pass
+
+    @abstractmethod
+    def list_endpoints(self):
+        """
+        List all endpoints
+        :return: List[Endpoint(url, name, model, status)] of all endpoints
+        """
+        pass

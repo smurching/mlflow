@@ -14,10 +14,14 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, \
+    UpdateExperiment, RegisterModel, ListModels, GetModel, DeployModel, ListEndpoints, DeployArg, \
+    CreateEndpoint, GetEndpoint, EndpointStatus, Endpoint, Model, GetDeploymentTargets, DeploymentTarget
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+
+import mlflow.sagemaker
 
 _store = None
 
@@ -353,6 +357,117 @@ def get_endpoints():
     return ret
 
 
+@catch_mlflow_exception
+def _get_model():
+    store = _get_store()
+    request_message = _get_request_message(GetModel())
+    response_message = GetModel.Response()
+    response_message.model = store.get_model(request_message.model_id).to_proto()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _register_model():
+    store = _get_store()
+    request_message = _get_request_message(RegisterModel())
+    response_message = RegisterModel.Response()
+    model_id, version = store.register_model(
+        model_name=request_message.name, run_id=request_message.run_id, path=request_message.path)
+    response_message.model_id = model_id
+    response_message.version = version
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+def _deploy_model_to_target(target, model_path, run_id, **deploy_args):
+    if target == "sagemaker":
+        # Note: a little weird because somee options that are required by the deployment target
+        # are "optional" in the method signature (e.g. app name is passed through **deploy_args)
+        mlflow.sagemaker.deploy(
+            model_path=model_path, run_id=run_id, synchronous=False, **deploy_args)
+    else:
+        raise MlflowException("Bad deployment target") # TODO error code
+
+@catch_mlflow_exception
+def _deploy_model():
+    store = _get_store()
+    request_message = _get_request_message(DeployModel())
+    deploy_args = {arg.key: arg.value for arg in request_message.deploy_args}
+    # TODO validate that model is well-formed
+    model = store.get_model(request_message.model_id)
+    store.deploy_model(
+        model_id=request_message.model_id, endpoint_name=request_message.endpoint_name,
+        deploy_target=request_message.deploy_target.name, deploy_args=deploy_args)
+    # Deploy model to appropriate deploy target (asynchronously)
+    _deploy_model_to_target(target=request_message.deploy_target.name,
+                            model_path=model.path, run_id=model.run_id, **deploy_args)
+    response_message = DeployModel.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _list_models():
+    store = _get_store()
+    _get_request_message(ListModels())
+    response_message = ListModels.Response()
+    result = store.list_models()
+    response_message.models = [model.to_proto() for model in result]
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _create_endpoint():
+    store = _get_store()
+    request_message = _get_request_message(CreateEndpoint())
+    store.create_endpoint(request_message.name)
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(CreateEndpoint.Response()))
+    return response
+
+
+@catch_mlflow_exception
+def _list_endpoints():
+    store = _get_store()
+    _get_request_message(ListEndpoints())
+    response_message = ListEndpoints.Response()
+    endpoint_entities = store.list_endpoints()
+    response_message.endpoints = [endpoint.to_proto() for endpoint in endpoint_entities]
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _get_endpoint():
+    store = _get_store()
+    request_message = _get_request_message(GetEndpoint())
+    response_message = GetEndpoint.Response()
+    result = store.get_endpoint(request_message.name)
+    response_message.endpoint = result.to_proto()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _get_deployment_targets():
+    store = _get_store()
+    _get_request_message(GetDeploymentTargets())
+    response_message = GetDeploymentTargets.Response()
+    result = store.get_deployment_targets()
+    response_message.targets = [DeploymentTarget(target=target) for target in result]
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 HANDLERS = {
     CreateExperiment: _create_experiment,
     GetExperiment: _get_experiment,
@@ -371,4 +486,12 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
+    GetModel: _get_model,
+    RegisterModel: _register_model,
+    DeployModel: _deploy_model,
+    ListModels: _list_models,
+    CreateEndpoint: _create_endpoint,
+    ListEndpoints: _list_endpoints,
+    GetEndpoint: _get_endpoint,
+    GetDeploymentTargets: _get_deployment_targets,
 }

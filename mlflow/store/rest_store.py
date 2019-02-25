@@ -11,7 +11,8 @@ from mlflow.utils.rest_utils import http_request_safe
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment
+    UpdateExperiment, RegisterModel, ListModels, GetModel, DeployModel, ListEndpoints, DeployArg, \
+    CreateEndpoint, GetEndpoint, EndpointStatus, Endpoint, Model, GetDeploymentTargets, DeploymentTarget
 
 from mlflow.protos import databricks_pb2
 
@@ -231,3 +232,88 @@ class RestStore(AbstractStore):
     def restore_run(self, run_id):
         req_body = message_to_json(RestoreRun(run_id=run_id))
         self._call_endpoint(RestoreRun, req_body)
+
+
+    def register_model(self, model_name, run_id, path):
+        """
+        Register a single model with the model registry.
+        :param model_name: Unique name of the model
+        :param run_id: Run ID associated with model
+        :param path: Path to model within artifact store for run
+        :return: Tuple (model_id: string, version: int)
+        """
+        req_body = message_to_json(RegisterModel(name=model_name, run_id=run_id, path=path))
+        response_proto = self._call_endpoint(RegisterModel, req_body)
+        return response_proto.model_id, response_proto.version
+
+    def create_endpoint(self, endpoint_name):
+        """
+        Register an endpoint with the model registry
+        :param endpoint_name: String name of endpoint
+        """
+        req_body = message_to_json(CreateEndpoint(name=endpoint_name))
+        self._call_endpoint(CreateEndpoint, req_body)
+
+    def get_deployment_targets(self):
+        """
+        Return a list of deployment targets
+        :return: List of valid deployment target arguments for deploy_model
+        """
+        req_body = message_to_json(GetDeploymentTargets())
+        response_proto = self._call_endpoint(GetDeploymentTargets, req_body)
+        return [target.name for target in response_proto]
+
+    def deploy_model(self, model_id, endpoint_name, deploy_target, deploy_args):
+        """
+        Deploy a model to an endpoint.
+        :param model_id: Id of model to deploy (string)
+        :param endpoint_name: Name of endpoint to deploy to
+        :param deploy_target: Deployment target ("sagemaker", "databricks", etc)
+        :param deploy_args: Dict of key-value argument pairs to pass to deployment logic
+        :return: None
+        """
+        deploy_arg_protos = [DeployArg(key=key, value=value) for key, value in deploy_args.items()]
+        req_body = message_to_json(DeployModel(
+            model_id=model_id, endpoint_name=endpoint_name, deploy_target=DeploymentTarget(name=deploy_target),
+            deploy_args=deploy_arg_protos))
+        self._call_endpoint(DeployModel, req_body)
+
+    def get_endpoint(self, endpoint_name):
+        """
+        Describe an endpoint.
+        :param endpoint_name: Name of endpoint to describe
+        :return: Endpoint(url, name, model, status)
+        """
+        req_body = message_to_json(GetEndpoint(endpoint_name))
+        response_proto = self._call_endpoint(GetEndpoint, req_body)
+        return response_proto.endpoint
+
+    def get_model(self, model_id):
+        """
+        Describe a model
+        :param model_id: ID of model to describe (not name, since there can be multiple model
+                         versions under the same name, unlike endpoints - this is kinda weird
+                         though).
+        :return: Model(run_id, path, model_id, name, version)
+        """
+        req_body = message_to_json(GetModel(model_id))
+        response_proto = self._call_endpoint(GetModel, req_body)
+        return response_proto.model
+
+
+    def list_models(self):
+        """
+        List all models
+        :return: List[Model] - latest version of each model.
+        """
+        req_body = message_to_json(ListModels())
+        return self._call_endpoint(ListModels, req_body)
+
+
+    def list_endpoints(self):
+        """
+        List all endpoints
+        :return: List[Endpoint(url, name, model, status)] of all endpoints
+        """
+        req_body = message_to_json(ListEndpoints())
+        return self._call_endpoint(ListEndpoints, req_body)

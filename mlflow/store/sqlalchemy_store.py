@@ -5,8 +5,8 @@ from six.moves import urllib
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.dbmodels.db_types import MYSQL
-from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
-from mlflow.entities import RunStatus, SourceType, Experiment
+from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag, SqlModel, SqlEndpoint
+from mlflow.entities import RunStatus, SourceType, Experiment, Endpoint, EndpointStatus
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
@@ -350,3 +350,106 @@ class SqlAlchemyStore(AbstractStore):
         exp = self._list_experiments(ids=[experiment_id], view_type=ViewType.ALL).first()
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         return [run for run in exp.runs if run.lifecycle_stage in stages]
+
+
+    def register_model(self, model_name, run_id, path):
+        """
+        Register a single model with the model registry.
+        :param model_name: Unique name of the model
+        :param run_id: Run ID associated with model
+        :param path: Path to model within artifact store for run
+        :return: Tuple (model_id: string, version: int)
+        """
+        run = self._get_run(run_id)
+        self._check_run_is_active(run)
+        model_id = uuid.uuid4().hex
+        new_model = SqlModel(name=model_name, run_uuid=run_id, path=path, model_id=model_id)
+        self._save_to_db(new_model)
+        return model_id, 0
+
+
+    def create_endpoint(self, endpoint_name):
+        """
+        Register an endpoint with the model registry
+        :param endpoint_name: String name of endpoint
+        """
+        new_endpoint = SqlEndpoint(name=endpoint_name)
+        self._save_to_db(new_endpoint)
+
+    def get_deployment_targets(self):
+        """
+        Return a list of deployment targets
+        :return: List of valid deployment target arguments for deploy_model
+        """
+        # TODO pull this from somewhere
+        return ["sagemaker", "databricks"]
+
+    def deploy_model(self, model_id, endpoint_name, deploy_target, deploy_args):
+        """
+        Deploy a model to an endpoint.
+        :param model_id: Id of model to deploy (string)
+        :param endpoint_name: Name of endpoint to deploy to
+        :param deploy_target: Deployment target ("sagemaker", "databricks", etc)
+        :param deploy_args: Dict of key-value argument pairs to pass to deployment logic
+        :return: None
+        """
+        endpoint = self.get_endpoint(endpoint_name)
+        endpoint.status = EndpointStatus.ENDPOINT_PENDING
+        endpoint.model_id = model_id
+        endpoint.deployment_target = deploy_target
+        self._save_to_db(endpoint)
+
+
+    def get_endpoint(self, endpoint_name):
+        """
+        Describe an endpoint.
+        :param endpoint_name: Name of endpoint to describe
+        :return: Endpoint(url, name, model, status)
+        """
+        endpoints = self.session.query(SqlEndpoint).filter(
+            SqlEndpoint.name == endpoint_name).all()
+        if len(endpoints) == 0:
+            raise MlflowException('Endpoint with name={} not found'.format(endpoint_name),
+                                  RESOURCE_DOES_NOT_EXIST)
+        if len(endpoints) > 1:
+            raise MlflowException(
+                'Expected only 1 endpoint with name={}. Found {}.'.format(
+                    endpoint_name, len(endpoints)), INVALID_STATE)
+
+        return endpoints[0]
+
+    def get_model(self, model_id):
+        """
+        Describe a model
+        :param model_id: ID of model to describe (not name, since there can be multiple model
+                         versions under the same name, unlike endpoints - this is kinda weird
+                         though).
+        :return: Model(run_id, path, model_id, name, version)
+        """
+        models = self.session.query(SqlModel).filter(
+            SqlModel.model_id == model_id).all()
+        if len(models) == 0:
+            raise MlflowException('Model with id={} not found'.format(model_id),
+                                  RESOURCE_DOES_NOT_EXIST)
+        if len(models) > 1:
+            raise MlflowException(
+                'Expected only 1 model with id={}. Found {}.'.format(
+                    model_id, len(models)), INVALID_STATE)
+
+        return models[0]
+
+
+    def list_models(self):
+        """
+        List all models
+        :return: List[Model] - latest version of each model.
+        """
+        return self.session.query(SqlModel).all()
+
+
+    def list_endpoints(self):
+        """
+        List all endpoints
+        :return: List[Endpoint(url, name, model, status)] of all endpoints
+        """
+        return self.session.query(SqlEndpoint).all()

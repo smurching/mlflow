@@ -101,6 +101,17 @@ export const listArtifactsApi = (runUuid, path, id = getUUID()) => {
   };
 };
 
+export const LIST_REGISTERED_MODELS_API = 'LIST_REGISTERED_MODELS_API';
+export const listRegisteredModelsApi = (runUuid, path, id = getUUID()) => {
+  return {
+    type: LIST_REGISTERED_MODELS_API,
+    payload: wrapDeferred(MlflowService.listModels, {
+      run_uuid: runUuid, path: path
+    }),
+    meta: { id: id, runUuid: runUuid, path: path },
+  };
+};
+
 const getArtifact = (runUuid, path) => {
   return new Promise((resolve) => {
     Utils.fetchArtifacts(path, runUuid).then((blob) => {

@@ -13,6 +13,8 @@ import CompareRunPage from './CompareRunPage';
 import AppErrorBoundary from './error-boundaries/AppErrorBoundary';
 import { connect } from 'react-redux';
 import HomePage from './HomePage';
+import ModelsPage from './ModelsPage';
+import EndpointsPage from './EndpointsPage';
 import ErrorModal from './modals/ErrorModal';
 import PageNotFoundView from './PageNotFoundView';
 import { Switch } from 'react-router';
@@ -31,7 +33,19 @@ class App extends Component {
               >
                 <img className="mlflow-logo" alt="MLflow" src={logo}/>
               </Link>
-            </div>
+              <Link
+                to={Routes.modelsPageRoute}
+                className="App-mlflow"
+              >
+                Models
+              </Link>
+              <Link
+                to={Routes.endpointsPageRoute}
+                className="App-mlflow"
+              >
+                Endpoints
+              </Link>
+          </div>
             <div className="header-links">
               <a href={'https://github.com/mlflow/mlflow'}>
                 <div className="github">
@@ -49,6 +63,8 @@ class App extends Component {
             <Switch>
               <Route exact path={Routes.rootRoute} component={HomePage}/>
               <Route exact path={Routes.experimentPageRoute} component={HomePage}/>
+              <Route exact path={Routes.modelsPageRoute} component={ModelsPage}/>
+              <Route exact path={Routes.endpointsPageRoute} component={EndpointsPage}/>
               <Route exact path={Routes.runPageRoute} component={RunPage}/>
               <Route exact path={Routes.metricPageRoute} component={MetricPage}/>
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>

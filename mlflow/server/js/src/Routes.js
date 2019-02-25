@@ -7,6 +7,10 @@ class Routes {
 
   static experimentPageRoute = "/experiments/:experimentId";
 
+  static modelsPageRoute = "/models";
+
+  static endpointsPageRoute = "/endpoints";
+
   static getRunPageRoute(experimentId, runUuid) {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }

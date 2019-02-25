@@ -6,7 +6,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,
-    SourceType, RunStatus, Run, ViewType)
+    SourceType, RunStatus, Run, ViewType, Model, Endpoint)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 
 Base = declarative_base()
@@ -172,3 +172,100 @@ class SqlParam(Base):
 
     def to_mlflow_entity(self):
         return _create_entity(Param, self)
+
+
+class SqlModel(Base):
+    __tablename__ = 'models'
+
+    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
+    path = Column(String(250), nullable=False)
+    model_id = Column(String(32))
+    name = Column(String(250))
+    version = Column(BigInteger)
+
+
+    run = relationship('SqlRun', backref=backref('models', cascade='all'))
+
+    __table_args__ = (
+        PrimaryKeyConstraint('model_id', name='model_pk'),
+    )
+
+    def __repr__(self):
+        return '<SqlModel({}, {}, {}, {}, {})>'.format(
+            self.run_uuid, self.path, self.model_id, self.name, self.version)
+
+    def to_mlflow_entity(self):
+        return _create_entity(Model, self)
+
+
+class SqlEndpoint(Base):
+    __tablename__ = 'endpoints'
+
+    name = Column(String(250))
+    deployment_target = Column(String(250))
+    status = Column(String(32))
+    model_id = Column(String(32), ForeignKey('models.model_id'))
+
+
+    __table_args__ = (
+        PrimaryKeyConstraint('name', name='endpoint_pk'),
+    )
+
+    def __repr__(self):
+        return '<SqlEndpoint({}, {}, {}, {})>'.format(
+            self.name, self.deployment_target, self.status, self.model_id)
+
+    def to_mlflow_entity(self):
+        return _create_entity(Endpoint, self)
+
+
+"""
+message Model {
+  // Data about where the model is stored
+  optional string run_id = 1;
+  optional string path = 2;
+  // Data stored by server
+  // UUID of model, assigned by server. Can be used to reference model
+  optional string model_id = 3;
+  // Model name & version (autoincrementing int). (name, version) can be used to reference model
+  // as well
+  optional string name = 4;
+  optional int64 version = 5;
+}
+
+enum EndpointStatus {
+  ENDPOINT_STOPPED = 1;
+  ENDPOINT_PENDING = 2;
+  ENDPOINT_RUNNING = 3;
+  ENDPOINT_TERMINATING = 4;
+}
+
+message Endpoint {
+  // Public URL of the endpoint
+  optional string url = 1;
+  // Name of the endpoint, e.g. "churn prediction". Acts as a unique identifier across all endpoints
+  optional string name = 2;
+  // The model currently associated with the endpoint
+  optional Model model = 3;
+  // Status of the endpoint (running, stopped)
+  optional EndpointStatus status = 4;
+}
+
+message GetModel {
+  optional string model_id = 1;
+  message Response {
+    // Model entity
+    optional Model model = 1;
+    // List of endpoints with which the current model is associated
+    repeated Endpoint endpoints = 2;
+  }
+}
+
+// Describe a single endpoint
+message GetEndpoint {
+  optional string name = 1;
+  message Response {
+    optional Endpoint endpoint = 1;
+  }
+}
+"""
