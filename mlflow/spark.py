@@ -27,7 +27,6 @@ import logging
 
 from py4j.protocol import Py4JJavaError
 import pyspark
-from pyspark import SparkContext
 from pyspark.ml.pipeline import PipelineModel
 
 import mlflow
@@ -38,6 +37,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.hadoop_filesystem import _HadoopFileSystem
 
 FLAVOR_NAME = "spark"
 
@@ -144,77 +144,6 @@ def _tmp_path(dfs_tmp):
     return os.path.join(dfs_tmp, str(uuid.uuid4()))
 
 
-class _HadoopFileSystem:
-    """
-    Interface to org.apache.hadoop.fs.FileSystem.
-
-    Spark ML models expect to read from and write to Hadoop FileSystem when running on a cluster.
-    Since MLflow works on local directories, we need this interface to copy the files between
-    the current DFS and local dir.
-    """
-
-    def __init__(self):
-        raise Exception("This class should not be instantiated")
-
-    _filesystem = None
-    _conf = None
-
-    @classmethod
-    def _jvm(cls):
-        return SparkContext._gateway.jvm
-
-    @classmethod
-    def _fs(cls):
-        if not cls._filesystem:
-            cls._filesystem = cls._jvm().org.apache.hadoop.fs.FileSystem.get(cls._conf())
-        return cls._filesystem
-
-    @classmethod
-    def _conf(cls):
-        sc = SparkContext.getOrCreate()
-        return sc._jsc.hadoopConfiguration()
-
-    @classmethod
-    def _local_path(cls, path):
-        return cls._jvm().org.apache.hadoop.fs.Path(os.path.abspath(path))
-
-    @classmethod
-    def _remote_path(cls, path):
-        return cls._jvm().org.apache.hadoop.fs.Path(path)
-
-    @classmethod
-    def copy_to_local_file(cls, src, dst, remove_src):
-        cls._fs().copyToLocalFile(remove_src, cls._remote_path(src), cls._local_path(dst))
-
-    @classmethod
-    def copy_from_local_file(cls, src, dst, remove_src):
-        cls._fs().copyFromLocalFile(remove_src, cls._local_path(src), cls._remote_path(dst))
-
-    @classmethod
-    def qualified_local_path(cls, path):
-        return cls._fs().makeQualified(cls._local_path(path)).toString()
-
-    @classmethod
-    def maybe_copy_from_local_file(cls, src, dst):
-        """
-        Conditionally copy the file to the Hadoop DFS.
-        The file is copied iff the configuration has distributed filesystem.
-
-        :return: If copied, return new target location, otherwise return (absolute) source path.
-        """
-        local_path = cls._local_path(src)
-        qualified_local_path = cls._fs().makeQualified(local_path).toString()
-        if qualified_local_path == "file:" + local_path.toString():
-            return local_path.toString()
-        cls.copy_from_local_file(src, dst, remove_src=False)
-        _logger.info("Copied SparkML model to %s", dst)
-        return dst
-
-    @classmethod
-    def delete(cls, path):
-        cls._fs().delete(cls._remote_path(path), True)
-
-
 def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda_env):
     """
     Saves model metadata into the passed-in directory. The persisted metadata assumes that a
@@ -319,6 +248,7 @@ def _load_model(model_path, dfs_tmpdir=None):
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
     model_path = _HadoopFileSystem.maybe_copy_from_local_file(model_path, tmp_path)
+    _logger.info("Copied SparkML model to %s", tmp_path)
     return PipelineModel.load(model_path)
 
 
