@@ -4,10 +4,12 @@ import json
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.dbfs_hdfs_artifact_repo import DbfsHdfsArtifactRepository
 from mlflow.store.rest_store import RestStore
 from mlflow.tracking import utils
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
+from mlflow.utils.hadoop_filesystem import is_hdfs_available
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
@@ -21,14 +23,42 @@ class DbfsArtifactRepository(ArtifactRepository):
     This repository is used with URIs of the form ``dbfs:/<path>``. The repository can only be used
     together with the RestStore.
     """
-
     def __init__(self, artifact_uri):
         cleaned_artifact_uri = artifact_uri.rstrip('/')
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)
+        self.repo = DbfsHdfsArtifactRepository(cleaned_artifact_uri) if is_hdfs_available()\
+            else DbfsRestArtifactRepository(cleaned_artifact_uri)
+
+    def list_artifacts(self, path=None):
+        return self.repo.list_artifacts(path)
+
+    def log_artifact(self, local_file, artifact_path=None):
+        return self.repo.log_artifact(local_file=local_file, artifact_path=artifact_path)
+
+    def log_artifacts(self, local_dir, artifact_path=None):
+        return self.repo.log_artifacts(local_dir=local_dir, artifact_path=artifact_path)
+
+    def _download_file(self, remote_file_path, local_path):
+        return self.repo._download_file(remote_file_path, local_path)
+
+    def get_path_module(self):
+        import posixpath
+        return posixpath
+
+
+class DbfsRestArtifactRepository(ArtifactRepository):
+    """
+    Stores artifacts on DBFS.
+
+    This repository is used with URIs of the form ``dbfs:/<path>``. The repository can only be used
+    together with the RestStore.
+    """
+    def __init__(self, artifact_uri):
+        super(DbfsRestArtifactRepository, self).__init__(artifact_uri)
         # NOTE: if we ever need to support databricks profiles different from that set for
         #  tracking, we could pass in the databricks profile name into this class.
         self.get_host_creds = _get_host_creds_from_default_store()
-        if not cleaned_artifact_uri.startswith('dbfs:/'):
+        if not artifact_uri.startswith('dbfs:/'):
             raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
 
     def _databricks_api_request(self, endpoint, **kwargs):
@@ -64,10 +94,6 @@ class DbfsArtifactRepository(ArtifactRepository):
 
     def _get_dbfs_endpoint(self, artifact_path):
         return "/dbfs%s" % self._get_dbfs_path(artifact_path)
-
-    def get_path_module(self):
-        import posixpath
-        return posixpath
 
     def log_artifact(self, local_file, artifact_path=None):
         basename = self.get_path_module().basename(local_file)

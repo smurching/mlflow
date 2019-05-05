@@ -1,7 +1,9 @@
 import os
 
+from mlflow.exceptions import MlflowException
 from mlflow.entities import FileInfo
 from pyspark import SparkContext
+
 
 class _HadoopFileSystem:
     """
@@ -20,6 +22,11 @@ class _HadoopFileSystem:
 
     @classmethod
     def _jvm(cls):
+        if not SparkContext._gateway:
+            raise MlflowException(
+                "No JVM associated with a SparkContext was found. This error should not arise "
+                "during normal operation; please file a GitHub issue at "
+                "https://github.com/mlflow/mlflow/issues")
         return SparkContext._gateway.jvm
 
     @classmethod
@@ -55,7 +62,6 @@ class _HadoopFileSystem:
                          file_size=file_status.getLen())
                 for file_status in cls._fs().listStatus(cls._remote_path(directory))]
 
-
     @classmethod
     def copy_to_local_file(cls, src, dst, remove_src):
         cls._fs().copyToLocalFile(remove_src, cls._remote_path(src), cls._local_path(dst))
@@ -86,3 +92,12 @@ class _HadoopFileSystem:
     @classmethod
     def delete(cls, path):
         cls._fs().delete(cls._remote_path(path), True)
+
+
+def is_hdfs_available():
+    """Returns true if HDFS utilities are available via PySpark, false otherwise"""
+    try:
+        _HadoopFileSystem._jvm()
+        return True
+    except MlflowException:
+        return False
