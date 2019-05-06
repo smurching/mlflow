@@ -37,6 +37,7 @@ class _HadoopFileSystem:
 
     @classmethod
     def _conf(cls):
+        # TODO might want to not always getOrCreate here, do we want to always launch a JVM here?
         sc = SparkContext.getOrCreate()
         return sc._jsc.hadoopConfiguration()
 
@@ -70,9 +71,16 @@ class _HadoopFileSystem:
     def copy_from_local_file(cls, src, dst, remove_src):
         cls._fs().copyFromLocalFile(remove_src, cls._local_path(src), cls._remote_path(dst))
 
+
     @classmethod
-    def qualified_local_path(cls, path):
-        return cls._fs().makeQualified(cls._local_path(path)).toString()
+    def is_recognized_scheme(cls, uri):
+        """Returns True if the passed-in URI has a scheme recognized by HDFS, false otherwise"""
+        # TODO: check is_hdfs_available here & elsewhere? Or not.
+        try:
+            lcs._fs().makeQualified(cls._remote_path(uri))
+            return True
+        except Exception: # TODO catch a narrower exception type
+            return False
 
     @classmethod
     def maybe_copy_from_local_file(cls, src, dst):

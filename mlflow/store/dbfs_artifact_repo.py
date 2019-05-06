@@ -9,7 +9,7 @@ from mlflow.store.rest_store import RestStore
 from mlflow.tracking import utils
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
-from mlflow.utils.hadoop_filesystem import is_hdfs_available
+from mlflow.utils.hadoop_filesystem import is_hdfs_available, _HadoopFileSystem
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
@@ -26,8 +26,18 @@ class DbfsArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         cleaned_artifact_uri = artifact_uri.rstrip('/')
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)
-        self.repo = DbfsHdfsArtifactRepository(cleaned_artifact_uri) if is_hdfs_available()\
+        self.repo = DbfsHdfsArtifactRepository(cleaned_artifact_uri)\
+            if DbfsArtifactRepository.is_dbfs_registered_with_hdfs()\
             else DbfsRestArtifactRepository(cleaned_artifact_uri)
+
+    @classmethod
+    def is_dbfs_registered_with_hdfs(cls):
+        """
+        Checks whether HDFS utils can write directly to DBFS.
+        Pulled into own method to be mocked during testing?
+        """
+        return is_hdfs_available() and _HadoopFileSystem.is_recognized_scheme("dbfs:/")
+
 
     def list_artifacts(self, path=None):
         return self.repo.list_artifacts(path)
