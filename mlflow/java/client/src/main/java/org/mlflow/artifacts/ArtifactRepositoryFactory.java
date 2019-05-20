@@ -16,7 +16,7 @@ public class ArtifactRepositoryFactory {
   }
 
   public ArtifactRepository getArtifactRepository(URI baseArtifactUri, String runId) {
-    if (baseArtifactUri.getScheme() == "dbfs" && ) {
+    if (baseArtifactUri.getScheme() == "dbfs") {
       return new DbfsArtifactRepository(baseArtifactUri.toString(), runId, hostCredsProvider);
     }
     return new CliBasedArtifactRepository(baseArtifactUri.toString(), runId, hostCredsProvider);
