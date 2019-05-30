@@ -4,8 +4,8 @@ import java.net.URI;
 
 import org.apache.hadoop.fs.FileSystem;
 
-public class DbfsArtifactRepository {
-    private static final Logger logger = LoggerFactory.getLogger(CliBasedArtifactRepository.class);
+public class DbfsArtifactRepository implements ArtifactRepository {
+    private static final Logger logger = LoggerFactory.getLogger(DbfsArtifactRepository.class);
 
     /**
      * Temporary method - to be pulled out into DbfsArtifactRepository, which should then handle
@@ -22,5 +22,17 @@ public class DbfsArtifactRepository {
         }
         return true;
     }
+
+    private ArtifactRepository delegate;
+
+    public DbfsArtifactRepository(String artifactUri) {
+        if (DbfsArtifactRepository.isRegisteredWithHdfs()) {
+            this.delegate = DbfsHdfsArtifactRepository(artifactUri);
+        } else {
+            this.delegate = DbfsRestArtifactRepository(artifactUri);
+        }
+    }
+
+
 
 }
