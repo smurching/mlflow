@@ -77,7 +77,7 @@ class _HadoopFileSystem:
         """Returns True if the passed-in URI has a scheme recognized by HDFS, false otherwise"""
         # TODO: check is_hdfs_available here & elsewhere? Or not.
         try:
-            lcs._fs().makeQualified(cls._remote_path(uri))
+            cls._fs().makeQualified(cls._remote_path(uri))
             return True
         except Exception: # TODO catch a narrower exception type
             return False

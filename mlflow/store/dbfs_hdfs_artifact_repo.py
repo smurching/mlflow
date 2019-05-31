@@ -1,4 +1,5 @@
 import os
+import posixpath
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
@@ -6,6 +7,7 @@ from mlflow.store.rest_store import RestStore
 from mlflow.tracking import utils
 from mlflow.utils.string_utils import strip_prefix
 from mlflow.utils.hadoop_filesystem import _HadoopFileSystem
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 class DbfsHdfsArtifactRepository(ArtifactRepository):
@@ -28,10 +30,10 @@ class DbfsHdfsArtifactRepository(ArtifactRepository):
         return '%s/%s' % (self.artifact_uri, strip_prefix(artifact_path, '/'))
 
     def log_artifact(self, local_file, artifact_path=None):
-        basename = self.get_path_module().basename(local_file)
+        basename = os.path.basename(local_file)
         if artifact_path:
             dst_path = self._get_dbfs_path(
-                self.get_path_module().join(artifact_path, basename))
+                posixpath.join(artifact_path, basename))
         else:
             dst_path = self._get_dbfs_path(basename)
         _HadoopFileSystem.copy_from_local_file(src=local_file, dst=dst_path, remove_src=False)
@@ -41,10 +43,11 @@ class DbfsHdfsArtifactRepository(ArtifactRepository):
         for (dirpath, _, filenames) in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
-                rel_path = self.get_path_module().relpath(dirpath, local_dir)
-                artifact_subdir = self.get_path_module().join(artifact_path, rel_path)
+                rel_path = os.path.relpath(dirpath, local_dir)
+                rel_path = relative_path_to_artifact_path(rel_path)
+                artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
-                file_path = self.get_path_module().join(dirpath, name)
+                file_path = os.path.join(dirpath, name)
                 self.log_artifact(file_path, artifact_subdir)
 
     def list_artifacts(self, path=None):
@@ -52,7 +55,12 @@ class DbfsHdfsArtifactRepository(ArtifactRepository):
             dbfs_dir = self._get_dbfs_path(path)
         else:
             dbfs_dir = self._get_dbfs_path('')
-        return sorted(_HadoopFileSystem.listdir(dbfs_dir), key=lambda f: f.path)
+        list_res = _HadoopFileSystem.listdir(dbfs_dir)
+        # If the passed-in path is a file, return an empty list.
+        for info in list_res:
+            if info.path == path and not info.is_dir:
+                return []
+        return sorted(list_res, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
         src_path = self._get_dbfs_path(remote_file_path)

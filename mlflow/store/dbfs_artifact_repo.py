@@ -54,10 +54,6 @@ class DbfsArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         return self.repo._download_file(remote_file_path, local_path)
 
-    def get_path_module(self):
-        import posixpath
-        return posixpath
-
 
 class DbfsRestArtifactRepository(ArtifactRepository):
     """
