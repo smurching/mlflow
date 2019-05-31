@@ -1,11 +1,13 @@
 import logging
 import os
+import posixpath
+import sys
 
 import uuid
 import six
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
-                            ViewType
+    ViewType, SourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
@@ -14,15 +16,14 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
-                                    _validate_tag_name, _validate_experiment_id,\
-                                    _validate_batch_log_limits, _validate_batch_log_data
+    _validate_tag_name, _validate_experiment_id, \
+    _validate_batch_log_limits, _validate_batch_log_data
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
-                                     read_yaml, find, read_file_lines, read_file, build_path,
+                                     read_yaml, find, read_file_lines, read_file,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
-                                     list_all)
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
+                                     list_all, local_file_uri_to_path, path_to_local_file_uri)
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -46,6 +47,17 @@ def _make_persisted_run_info_dict(run_info):
     # old mlflow versions to read
     run_info_dict = dict(run_info)
     run_info_dict['tags'] = []
+    run_info_dict['name'] = ''
+    if 'status' in run_info_dict:
+        # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
+        # Convert from string to enum/int before storing.
+        run_info_dict['status'] = RunStatus.from_string(run_info.status)
+    else:
+        run_info_dict['status'] = RunStatus.RUNNING
+    run_info_dict['source_type'] = SourceType.LOCAL
+    run_info_dict['source_name'] = ''
+    run_info_dict['entry_point_name'] = ''
+    run_info_dict['source_version'] = ''
     return run_info_dict
 
 
@@ -53,6 +65,10 @@ def _read_persisted_run_info_dict(run_info_dict):
     dict_copy = run_info_dict.copy()
     if 'lifecycle_stage' not in dict_copy:
         dict_copy['lifecycle_stage'] = LifecycleStage.ACTIVE
+    # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
+    # converting to string before hydrating RunInfo.
+    # If 'status' value not recorded in files, mark it as 'RUNNING' (default)
+    dict_copy['status'] = RunStatus.to_string(run_info_dict.get('status', RunStatus.RUNNING))
 
     # 'experiment_id' was changed from int to string, so we must cast to string
     # when reading legacy run_infos
@@ -75,9 +91,9 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super(FileStore, self).__init__()
-        self.root_directory = root_directory or _default_root_dir()
-        self.artifact_root_uri = artifact_root_uri or self.root_directory
-        self.trash_folder = build_path(self.root_directory, FileStore.TRASH_FOLDER_NAME)
+        self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
+        self.artifact_root_uri = artifact_root_uri or path_to_local_file_uri(self.root_directory)
+        self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
@@ -116,31 +132,34 @@ class FileStore(AbstractStore):
         _validate_run_id(run_uuid)
         if not self._has_experiment(experiment_id):
             return None
-        return build_path(self._get_experiment_path(experiment_id, assert_exists=True), run_uuid)
+        return os.path.join(self._get_experiment_path(experiment_id, assert_exists=True),
+                            run_uuid)
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
         _validate_run_id(run_uuid)
         _validate_metric_name(metric_key)
-        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.METRICS_FOLDER_NAME,
-                          metric_key)
+        return os.path.join(self._get_run_dir(experiment_id, run_uuid),
+                            FileStore.METRICS_FOLDER_NAME,
+                            metric_key)
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
         _validate_run_id(run_uuid)
         _validate_param_name(param_name)
-        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME,
-                          param_name)
+        return os.path.join(self._get_run_dir(experiment_id, run_uuid),
+                            FileStore.PARAMS_FOLDER_NAME,
+                            param_name)
 
     def _get_tag_path(self, experiment_id, run_uuid, tag_name):
         _validate_run_id(run_uuid)
         _validate_tag_name(tag_name)
-        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME,
-                          tag_name)
+        return os.path.join(self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME,
+                            tag_name)
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
-        artifacts_dir = build_path(self.get_experiment(experiment_id).artifact_location,
-                                   run_uuid,
-                                   FileStore.ARTIFACTS_FOLDER_NAME)
+        artifacts_dir = posixpath.join(self.get_experiment(experiment_id).artifact_location,
+                                       run_uuid,
+                                       FileStore.ARTIFACTS_FOLDER_NAME)
         return artifacts_dir
 
     def _get_active_experiments(self, full_path=False):
@@ -172,8 +191,9 @@ class FileStore(AbstractStore):
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
-        meta_dir = mkdir(self.root_directory, experiment_id)
-        artifact_uri = artifact_uri or build_path(self.artifact_root_uri, experiment_id)
+        meta_dir = mkdir(self.root_directory, str(experiment_id))
+        artifact_uri = artifact_uri or path_to_local_file_uri(
+            os.path.join(self.root_directory, str(experiment_id)))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
@@ -254,9 +274,9 @@ class FileStore(AbstractStore):
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if conflict_experiment is not None:
             raise MlflowException(
-                    "Cannot restore eperiment with ID %d. "
-                    "An experiment with same ID already exists." % experiment_id,
-                    databricks_pb2.RESOURCE_ALREADY_EXISTS)
+                "Cannot restore eperiment with ID %d. "
+                "An experiment with same ID already exists." % experiment_id,
+                databricks_pb2.RESOURCE_ALREADY_EXISTS)
         mv(experiment_dir, self.root_directory)
 
     def rename_experiment(self, experiment_id, new_name):
@@ -318,8 +338,7 @@ class FileStore(AbstractStore):
         self._overwrite_run_info(new_info)
         return new_info
 
-    def create_run(self, experiment_id, user_id, run_name, source_type,
-                   source_name, entry_point_name, start_time, source_version, tags, parent_run_id):
+    def create_run(self, experiment_id, user_id, start_time, tags):
         """
         Creates a run with the specified attributes.
         """
@@ -327,23 +346,21 @@ class FileStore(AbstractStore):
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(
-                    "Could not create run under experiment with ID %s - no such experiment "
-                    "exists." % experiment_id,
-                    databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+                "Could not create run under experiment with ID %s - no such experiment "
+                "exists." % experiment_id,
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                    "Could not create run under non-active experiment with ID "
-                    "%s." % experiment_id,
-                    databricks_pb2.INVALID_STATE)
+                "Could not create run under non-active experiment with ID "
+                "%s." % experiment_id,
+                databricks_pb2.INVALID_STATE)
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(run_uuid=run_uuid, run_id=run_uuid, experiment_id=experiment_id,
-                           name="",
-                           artifact_uri=artifact_uri, source_type=source_type,
-                           source_name=source_name,
-                           entry_point_name=entry_point_name, user_id=user_id,
-                           status=RunStatus.RUNNING, start_time=start_time, end_time=None,
-                           source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
+                           artifact_uri=artifact_uri, user_id=user_id,
+                           status=RunStatus.to_string(RunStatus.RUNNING),
+                           start_time=start_time, end_time=None,
+                           lifecycle_stage=LifecycleStage.ACTIVE)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         mkdir(run_dir)
@@ -354,11 +371,7 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
-        if parent_run_id:
-            self.set_tag(run_uuid, RunTag(key=MLFLOW_PARENT_RUN_ID, value=parent_run_id))
-        if run_name:
-            self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
-        return Run(run_info=run_info, run_data=None)
+        return self.get_run(run_id=run_uuid)
 
     def get_run(self, run_id):
         """
@@ -416,6 +429,13 @@ class FileStore(AbstractStore):
             for name in files:
                 abspath = os.path.join(root, name)
                 file_names.append(os.path.relpath(abspath, source_dirs[0]))
+        if sys.platform == "win32":
+            # Turn metric relative path into metric name.
+            # Metrics can have '/' in the name. On windows, '/' is interpreted as a separator.
+            # When the metric is read back the path will use '\' for separator.
+            # We need to translate the path into posix path.
+            from mlflow.utils.file_utils import relative_path_to_artifact_path
+            file_names = [relative_path_to_artifact_path(x) for x in file_names]
         return source_dirs[0], file_names
 
     @staticmethod

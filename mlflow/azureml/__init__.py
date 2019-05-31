@@ -18,7 +18,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
+from mlflow.utils import PYTHON_VERSION, experimental, get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
 
@@ -26,6 +26,7 @@ from mlflow.version import VERSION as mlflow_version
 _logger = logging.getLogger(__name__)
 
 
+@experimental
 def build_image(model_uri, workspace, image_name=None, model_name=None,
                 mlflow_home=None, description=None, tags=None, synchronous=True):
     """
@@ -312,8 +313,7 @@ import pandas as pd
 
 from azureml.core.model import Model
 from mlflow.pyfunc import load_pyfunc
-from mlflow.pyfunc.scoring_server import parse_json_input
-from mlflow.utils import get_jsonable_obj
+from mlflow.pyfunc.scoring_server import parse_json_input, _get_jsonable_obj
 
 
 def init():
@@ -324,6 +324,6 @@ def init():
 
 def run(json_input):
     input_df = parse_json_input(json_input=json_input, orient="split")
-    return get_jsonable_obj(model.predict(input_df), pandas_orient="records")
+    return _get_jsonable_obj(model.predict(input_df), pandas_orient="records")
 
 """

@@ -2,13 +2,14 @@
 Utilities for validating user inputs such as metric names and parameter names.
 """
 import numbers
-import os.path
+import posixpath
 import re
 
 import numpy as np
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
@@ -30,16 +31,18 @@ MAX_PARAM_VAL_LENGTH = 250
 MAX_TAG_VAL_LENGTH = 250
 MAX_ENTITY_KEY_LENGTH = 250
 
+_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
+
 
 def bad_path_message(name):
     return (
         "Names may be treated as files in certain cases, and must not resolve to other names"
         " when treated as such. This name would resolve to '%s'"
-    ) % os.path.normpath(name)
+    ) % posixpath.normpath(name)
 
 
 def path_not_unique(name):
-    norm = os.path.normpath(name)
+    norm = posixpath.normpath(name)
     return norm != name or norm == '.' or norm.startswith('..') or norm.startswith('/')
 
 
@@ -195,3 +198,10 @@ def _validate_experiment_artifact_location(artifact_location):
         raise MlflowException("Artifact location cannot be a runs:/ URI. Given: '%s'"
                               % artifact_location,
                               error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_db_type_string(db_type):
+    """validates db_type parsed from DB URI is supported"""
+    if db_type not in DATABASE_ENGINES:
+        error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
+        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)

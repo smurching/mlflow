@@ -1,7 +1,11 @@
-import sqlalchemy
+import logging
 import uuid
 from contextlib import contextmanager
+
+import posixpath
 from six.moves import urllib
+from alembic.script import ScriptDirectory
+import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
@@ -14,17 +18,52 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.tracking.utils import _is_local_uri
-from mlflow.utils.file_utils import build_path, mkdir
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
-    _validate_run_id
+from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
+from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
+    _validate_run_id, _validate_metric, _validate_db_type_string
+from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
+from mlflow.store.dbmodels.initial_models import Base as InitialBase
+
+
+_logger = logging.getLogger(__name__)
+
+
+_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " \
+                      "format specifications."
+
+
+def _parse_db_uri_extract_db_type(db_uri):
+    """
+    Parse the specified DB URI to extract the database type. Confirm the database type is
+    supported. If a driver is specified, confirm it passes a plausible regex.
+    """
+    scheme = urllib.parse.urlparse(db_uri).scheme
+    scheme_plus_count = scheme.count('+')
+
+    if scheme_plus_count == 0:
+        db_type = scheme
+    elif scheme_plus_count == 1:
+        db_type, _ = scheme.split('+')
+    else:
+        error_msg = "Invalid database URI: '%s'. %s" % (db_uri, _INVALID_DB_URI_MSG)
+        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+
+    _validate_db_type_string(db_type)
+
+    return db_type
 
 
 class SqlAlchemyStore(AbstractStore):
     """
-    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. Currently
-    supported database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. This store
-    interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
+    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
+    supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+    As specified in the
+    `SQLAlchemy docs <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_ ,
+    the database URI is expected in the format
+    ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. If you do not
+    specify a driver, SQLAlchemy uses a dialect's default driver.
+
+    This store interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
     :py:class:`mlflow.store.dbmodels.models.SqlExperiment`,
     :py:class:`mlflow.store.dbmodels.models.SqlRun`,
     :py:class:`mlflow.store.dbmodels.models.SqlTag`,
@@ -43,30 +82,75 @@ class SqlAlchemyStore(AbstractStore):
         """
         Create a database backed store.
 
-        :param db_uri: SQL connection string used by SQLAlchemy Engine to connect to the database.
-                       Argument is expected to be in the format:
-                       ``db_type://<user_name>:<password>@<host>:<port>/<database_name>`
-                       Supported database types are ``mysql``, ``mssql``, ``sqlite``,
-                       and ``postgresql``.
+        :param db_uri: The SQLAlchemy database URI string to connect to the database. See
+                       the `SQLAlchemy docs
+                       <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
+                       for format specifications. Mlflow supports the dialects ``mysql``,
+                       ``mssql``, ``sqlite``, and ``postgresql``.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
-        self.db_type = urllib.parse.urlparse(db_uri).scheme
+        self.db_type = _parse_db_uri_extract_db_type(db_uri)
         self.artifact_root_uri = default_artifact_root
         self.engine = sqlalchemy.create_engine(db_uri)
-        Base.metadata.create_all(self.engine)
+        insp = sqlalchemy.inspect(self.engine)
+        # On a completely fresh MLflow installation against an empty database (verify database
+        # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
+        # DB migrations
+        expected_tables = set([
+            SqlExperiment.__tablename__,
+            SqlRun.__tablename__,
+            SqlMetric.__tablename__,
+            SqlParam.__tablename__,
+            SqlTag.__tablename__
+        ])
+        if len(expected_tables & set(insp.get_table_names())) == 0:
+            SqlAlchemyStore._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
+        SqlAlchemyStore._verify_schema(self.engine)
 
         if _is_local_uri(default_artifact_root):
-            mkdir(default_artifact_root)
+            mkdir(local_file_uri_to_path(default_artifact_root))
 
         if len(self.list_experiments()) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
+
+    @staticmethod
+    def _initialize_tables(engine):
+        _logger.info("Creating initial MLflow database tables...")
+        InitialBase.metadata.create_all(engine)
+        engine_url = str(engine.url)
+        _upgrade_db(engine_url)
+
+    @staticmethod
+    def _get_latest_schema_revision():
+        """Get latest schema revision as a string."""
+        # We aren't executing any commands against a DB, so we leave the DB URL unspecified
+        config = _get_alembic_config(db_url="")
+        script = ScriptDirectory.from_config(config)
+        heads = script.get_heads()
+        if len(heads) != 1:
+            raise MlflowException("Migration script directory was in unexpected state. Got %s head "
+                                  "database versions but expected only 1. Found versions: %s"
+                                  % (len(heads), heads))
+        return heads[0]
+
+    @staticmethod
+    def _verify_schema(engine):
+        head_revision = SqlAlchemyStore._get_latest_schema_revision()
+        current_rev = _get_schema_version(engine)
+        if current_rev != head_revision:
+            raise MlflowException(
+                "Detected out-of-date database schema (found version %s, but expected %s). "
+                "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
+                "to migrate your database to the latest schema. NOTE: schema migration may "
+                "result in database downtime - please consult your database's documentation for "
+                "more detail." % (current_rev, head_revision))
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
@@ -163,7 +247,7 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        return build_path(self.artifact_root_uri, str(experiment_id))
+        return posixpath.join(self.artifact_root_uri, str(experiment_id))
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
@@ -259,8 +343,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment.name = new_name
             self._save_to_db(objs=experiment, session=session)
 
-    def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags, parent_run_id):
+    def create_run(self, experiment_id, user_id, start_time, tags):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
 
@@ -269,22 +352,19 @@ class SqlAlchemyStore(AbstractStore):
                                       INVALID_STATE)
 
             run_id = uuid.uuid4().hex
-            artifact_location = build_path(experiment.artifact_location, run_id,
-                                           SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
-            run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_id,
-                         experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
-                         source_name=source_name, entry_point_name=entry_point_name,
+            artifact_location = posixpath.join(experiment.artifact_location, run_id,
+                                               SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
+            run = SqlRun(name="", artifact_uri=artifact_location, run_uuid=run_id,
+                         experiment_id=experiment_id,
+                         source_type=SourceType.to_string(SourceType.UNKNOWN),
+                         source_name="", entry_point_name="",
                          user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),
                          start_time=start_time, end_time=None,
-                         source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
+                         source_version="", lifecycle_stage=LifecycleStage.ACTIVE)
 
             tags_dict = {}
             for tag in tags:
                 tags_dict[tag.key] = tag.value
-            if parent_run_id:
-                tags_dict[MLFLOW_PARENT_RUN_ID] = parent_run_id
-            if run_name:
-                tags_dict[MLFLOW_RUN_NAME] = run_name
             run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
             self._save_to_db(objs=run, session=session)
 
@@ -347,6 +427,7 @@ class SqlAlchemyStore(AbstractStore):
             self._save_to_db(objs=run, session=session)
 
     def log_metric(self, run_id, metric):
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)

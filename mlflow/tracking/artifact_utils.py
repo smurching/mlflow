@@ -1,6 +1,7 @@
 """
 Utilities for dealing with artifacts in the context of a Run.
 """
+import posixpath
 
 from six.moves import urllib
 
@@ -39,12 +40,7 @@ def get_artifact_uri(run_id, artifact_path=None):
     if artifact_path is None:
         return run.info.artifact_uri
     else:
-        # Path separators may not be consistent across all artifact repositories. Therefore, when
-        # joining the run's artifact root directory with the artifact's relative path, we use the
-        # path module defined by the appropriate artifact repository
-        artifact_path_module = \
-            get_artifact_repository(run.info.artifact_uri).get_path_module()
-        return artifact_path_module.join(run.info.artifact_uri, artifact_path)
+        return posixpath.join(run.info.artifact_uri, artifact_path)
 
 
 # TODO: This method does not require a Run and its internals should be moved to
@@ -57,19 +53,14 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
-    artifact_path_module = \
-        get_artifact_repository(artifact_uri).get_path_module()
-    artifact_src_dir = artifact_path_module.dirname(artifact_uri)
-    artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
-    artifact_repo = get_artifact_repository(artifact_uri=artifact_src_dir)
-    return artifact_repo.download_artifacts(artifact_path=artifact_src_relative_path,
-                                            dst_path=output_path)
-
-
-def _get_model_log_dir(model_name, run_id):
-    if not run_id:
-        raise Exception("Must specify a run_id to get logging directory for a model.")
-    store = _get_store()
-    run = store.get_run(run_id)
-    artifact_repo = get_artifact_repository(run.info.artifact_uri)
-    return artifact_repo.download_artifacts(model_name)
+    parsed_uri = urllib.parse.urlparse(artifact_uri)
+    prefix = ""
+    if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
+        # relative path is a special case, urllib does not reconstruct it properly
+        prefix = parsed_uri.scheme + ":"
+        parsed_uri = parsed_uri._replace(scheme="")
+    artifact_path = posixpath.basename(parsed_uri.path)
+    parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
+    root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
+    return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
+        artifact_path=artifact_path, dst_path=output_path)

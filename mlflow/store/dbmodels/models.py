@@ -57,7 +57,7 @@ class SqlExperiment(Base):
     __table_args__ = (
         CheckConstraint(
             lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
-            name='lifecycle_stage'),
+            name='experiments_lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
 
@@ -147,7 +147,7 @@ class SqlRun(Base):
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
         CheckConstraint(lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
-                        name='lifecycle_stage'),
+                        name='runs_lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
@@ -161,15 +161,10 @@ class SqlRun(Base):
             run_uuid=self.run_uuid,
             run_id=self.run_uuid,
             experiment_id=str(self.experiment_id),
-            name=self.name,
-            source_type=SourceType.from_string(self.source_type),
-            source_name=self.source_name,
-            entry_point_name=self.entry_point_name,
             user_id=self.user_id,
-            status=RunStatus.from_string(self.status),
+            status=self.status,
             start_time=self.start_time,
             end_time=self.end_time,
-            source_version=self.source_version,
             lifecycle_stage=self.lifecycle_stage,
             artifact_uri=self.artifact_uri)
 
@@ -249,7 +244,7 @@ class SqlMetric(Base):
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
     """
-    step = Column(BigInteger, default=0)
+    step = Column(BigInteger, default=0, nullable=False)
     """
     Step recorded for this metric entry: `BigInteger`.
     """

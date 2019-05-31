@@ -3,11 +3,10 @@ import json
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.rest_utils import http_request_safe
+from mlflow.utils.rest_utils import http_request, verify_rest_response
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
@@ -49,6 +48,9 @@ class RestStore(AbstractStore):
         super(RestStore, self).__init__()
         self.get_host_creds = get_host_creds
 
+    def _verify_rest_response(self, response, endpoint):
+        return verify_rest_response(response, endpoint)
+
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
@@ -58,11 +60,13 @@ class RestStore(AbstractStore):
         host_creds = self.get_host_creds()
 
         if method == 'GET':
-            response = http_request_safe(
+            response = http_request(
                 host_creds=host_creds, endpoint=endpoint, method=method, params=json_body)
         else:
-            response = http_request_safe(
+            response = http_request(
                 host_creds=host_creds, endpoint=endpoint, method=method, json=json_body)
+
+        response = self._verify_rest_response(response, endpoint)
 
         js_dict = json.loads(response.text)
         parse_dict(js_dict=js_dict, message=response_proto)
@@ -136,8 +140,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
 
-    def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags, parent_run_id):
+    def create_run(self, experiment_id, user_id, start_time, tags):
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
@@ -150,15 +153,10 @@ class RestStore(AbstractStore):
         """
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(CreateRun(
-            experiment_id=str(experiment_id), user_id=user_id, run_name="",
-            source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
-            start_time=start_time, source_version=source_version, tags=tag_protos,
-            parent_run_id=parent_run_id))
+            experiment_id=str(experiment_id), user_id=user_id,
+            start_time=start_time, tags=tag_protos))
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
-        if run_name:
-            # TODO: optimization: This is making 2 calls to backend store. Include with above call.
-            self.set_tag(run.info.run_id, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return run
 
     def log_metric(self, run_id, metric):
@@ -226,7 +224,6 @@ class RestStore(AbstractStore):
         """
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(experiment_ids=experiment_ids,
-                        anded_expressions=search_filter.search_expressions if search_filter else [],
                         filter=search_filter.filter_string if search_filter else None,
                         run_view_type=ViewType.to_proto(run_view_type),
                         max_results=max_results)

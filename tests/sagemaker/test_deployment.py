@@ -24,6 +24,7 @@ from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
 
 TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
@@ -46,13 +47,6 @@ def pretrained_model():
 @pytest.fixture
 def sagemaker_client():
     return boto3.client("sagemaker", region_name="us-west-2")
-
-
-@pytest.fixture(scope='session', autouse=True)
-def set_boto_credentials():
-    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
-    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
 
 
 def get_sagemaker_backend(region_name):
@@ -617,8 +611,9 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     models_before_replacement = [
             model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
 
-    sk_model = mlflow.sklearn.load_model(
-            path=pretrained_model.model_path, run_id=pretrained_model.run_id)
+    model_uri = "runs:/{run_id}/{artifact_path}".format(
+        run_id=pretrained_model.run_id, artifact_path=pretrained_model.model_path)
+    sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)

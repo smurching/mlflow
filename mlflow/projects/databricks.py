@@ -35,10 +35,10 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 _logger = logging.getLogger(__name__)
 
 
-def before_run_validations(tracking_uri, cluster_spec):
+def before_run_validations(tracking_uri, backend_config):
     """Validations to perform before running a project on Databricks."""
-    if cluster_spec is None:
-        raise ExecutionException("Cluster spec must be provided when launching MLflow project "
+    if backend_config is None:
+        raise ExecutionException("Backend spec must be provided when launching MLflow project "
                                  "runs on Databricks.")
     if tracking.utils._is_local_uri(tracking_uri):
         raise ExecutionException(
@@ -112,7 +112,7 @@ class DatabricksJobRunner(object):
                             a directory containing an MLproject file).
         """
         temp_tarfile_dir = tempfile.mkdtemp()
-        temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
+        temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
 
         def custom_filter(x):
             return None if os.path.basename(x.name) == "mlruns" else x

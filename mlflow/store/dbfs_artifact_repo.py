@@ -1,4 +1,5 @@
 import os
+import posixpath
 import json
 
 from mlflow.entities import FileInfo
@@ -7,9 +8,11 @@ from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.dbfs_hdfs_artifact_repo import DbfsHdfsArtifactRepository
 from mlflow.store.rest_store import RestStore
 from mlflow.tracking import utils
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
 from mlflow.utils.hadoop_filesystem import is_hdfs_available, _HadoopFileSystem
+
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
@@ -106,10 +109,10 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         return "/dbfs%s" % self._get_dbfs_path(artifact_path)
 
     def log_artifact(self, local_file, artifact_path=None):
-        basename = self.get_path_module().basename(local_file)
+        basename = os.path.basename(local_file)
         if artifact_path:
             http_endpoint = self._get_dbfs_endpoint(
-                self.get_path_module().join(artifact_path, basename))
+                posixpath.join(artifact_path, basename))
         else:
             http_endpoint = self._get_dbfs_endpoint(basename)
         if os.stat(local_file).st_size == 0:
@@ -128,10 +131,11 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         for (dirpath, _, filenames) in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
-                rel_path = self.get_path_module().relpath(dirpath, local_dir)
-                artifact_subdir = self.get_path_module().join(artifact_path, rel_path)
+                rel_path = os.path.relpath(dirpath, local_dir)
+                rel_path = relative_path_to_artifact_path(rel_path)
+                artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
-                file_path = self.get_path_module().join(dirpath, name)
+                file_path = os.path.join(dirpath, name)
                 self.log_artifact(file_path, artifact_subdir)
 
     def list_artifacts(self, path=None):

@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import random
 import shutil
 import six
+import tempfile
 import time
 import unittest
 import uuid
@@ -10,20 +12,19 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage
+from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus, RunData
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.search_utils import SearchFilter
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
 
 class TestFileStore(unittest.TestCase):
-    ROOT_LOCATION = "/tmp"
+    ROOT_LOCATION = tempfile.gettempdir()
 
     def setUp(self):
         self._create_root(TestFileStore.ROOT_LOCATION)
@@ -54,15 +55,10 @@ class TestFileStore(unittest.TestCase):
                 run_info = {"run_uuid": run_id,
                             "run_id": run_id,
                             "experiment_id": exp,
-                            "name": random_str(random_int(10, 40)),
-                            "source_type": random_int(1, 4),
-                            "source_name": random_str(random_int(100, 300)),
-                            "entry_point_name": random_str(random_int(100, 300)),
                             "user_id": random_str(random_int(10, 25)),
-                            "status": random_int(1, 5),
+                            "status": random.choice(RunStatus.all_status()),
                             "start_time": random_int(1, 10),
                             "end_time": random_int(20, 30),
-                            "source_version": random_str(random_int(10, 30)),
                             "tags": [],
                             "artifact_uri": "%s/%s" % (run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
                             }
@@ -272,8 +268,29 @@ class TestFileStore(unittest.TestCase):
         # delete it
         fs.delete_experiment(exp_id)
         with pytest.raises(Exception):
-            fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name',
-                          0, None, [], None)
+            fs.create_run(exp_id, 'user', 0, [])
+
+    def test_create_run_returns_expected_run_data(self):
+        fs = FileStore(self.test_root)
+        no_tags_run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user', start_time=0, tags=[])
+        assert isinstance(no_tags_run.data, RunData)
+        assert len(no_tags_run.data.tags) == 0
+
+        tags_dict = {
+            "my_first_tag": "first",
+            "my-second-tag": "2nd",
+        }
+        tags_entities = [
+            RunTag(key, value) for key, value in tags_dict.items()
+        ]
+        tags_run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id='user',
+            start_time=0,
+            tags=tags_entities)
+        assert isinstance(tags_run.data, RunData)
+        assert tags_run.data.tags == tags_dict
 
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
@@ -286,6 +303,7 @@ class TestFileStore(unittest.TestCase):
         run_info.pop("params", None)
         run_info.pop("tags", None)
         run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
+        run_info['status'] = RunStatus.to_string(run_info['status'])
         self.assertEqual(run_info, dict(run.info))
 
     def test_get_run(self):
@@ -314,6 +332,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("params")
                 dict_run_info.pop("tags")
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
+                dict_run_info['status'] = RunStatus.to_string(dict_run_info['status'])
                 self.assertEqual(dict_run_info, dict(run_info))
 
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
@@ -395,12 +414,8 @@ class TestFileStore(unittest.TestCase):
     def test_search_tags(self):
         fs = FileStore(self.test_root)
         experiment_id = self.experiments[0]
-        r1 = fs.create_run(
-            experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
-            None, [], None).info.run_id
-        r2 = fs.create_run(
-            experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
-            None, [], None).info.run_id
+        r1 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        r2 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
 
         fs.set_tag(r1, RunTag('generic_tag', 'p_val'))
         fs.set_tag(r2, RunTag('generic_tag', 'p_val'))
@@ -439,8 +454,7 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         exp = fs.create_experiment("search_with_max_results")
 
-        runs = [fs.create_run(exp, 'user', 'r_%d' % r, 'source_type', 'source_name', 'entry_point',
-                              r, None, [], None).info.run_id
+        runs = [fs.create_run(exp, 'user', r, []).info.run_id
                 for r in range(10)]
         runs.reverse()
 
@@ -460,8 +474,7 @@ class TestFileStore(unittest.TestCase):
 
         # Create 10 runs with the same start_time.
         # Sort based on run_id
-        runs = sorted([fs.create_run(exp, 'user', 'r_%d' % r, 'source_type', 'source_name',
-                                     'entry_point', 1000, None, [], None).info.run_id
+        runs = sorted([fs.create_run(exp, 'user', 1000, []).info.run_id
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
@@ -558,13 +571,6 @@ class TestFileStore(unittest.TestCase):
             fs.log_metric(run_id, Metric('a', 0.0, timestamp=0, step=0))
         with pytest.raises(MlflowException):
             fs.log_param(run_id, Param('a', 'b'))
-
-    def test_create_run_with_parent_id(self):
-        fs = FileStore(self.test_root)
-        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
-        run = fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name',
-                            'entry_point_name', 0, None, [], 'test_parent_run_id')
-        assert fs.get_run(run.info.run_id).data.tags[MLFLOW_PARENT_RUN_ID] == 'test_parent_run_id'
 
     def test_default_experiment_initialization(self):
         fs = FileStore(self.test_root)
@@ -663,10 +669,7 @@ class TestFileStore(unittest.TestCase):
     def test_log_batch(self):
         fs = FileStore(self.test_root)
         run = fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
-            source_type='source_type', source_name='source_name',
-            entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
-            parent_run_id=None)
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user', start_time=0, tags=[])
         run_id = run.info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 0)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
@@ -677,10 +680,8 @@ class TestFileStore(unittest.TestCase):
 
     def _create_run(self, fs):
         return fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
-            source_type='source_type', source_name='source_name',
-            entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
-            parent_run_id=None)
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user',
+            start_time=0, tags=[])
 
     def _verify_logged(self, fs, run_id, metrics, params, tags):
         run = fs.get_run(run_id)

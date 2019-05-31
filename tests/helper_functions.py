@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import random
 import re
@@ -6,8 +8,10 @@ import string
 import time
 import signal
 from subprocess import Popen, PIPE, STDOUT
+import sys
 
 import pandas as pd
+import pytest
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
@@ -48,9 +52,10 @@ def score_model_in_sagemaker_docker_container(
 
 
 def pyfunc_serve_and_score_model(
-        model_path, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
+        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None,
+        stdout=sys.stdout):
     """
-    :param model_path: Path to the model to be served.
+    :param model_uri: URI to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
                  Pandas dataframe or string of the format specified by `content_type`.
     :param content_type: The type of the data to send to the pyfunc server for testing. This is
@@ -64,16 +69,17 @@ def pyfunc_serve_and_score_model(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"]
+    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", "0"]
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
     for x in iter(proc.stdout.readline, ""):
-        print(x)
-        m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
+        print(x, file=stdout)
+        m = re.search(pattern=" Listening at: http://127.0.0.1:(\\d+).*", string=x)
         if m:
             return _evaluate_scoring_proc(
-                    proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds)
+                proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds,
+                stdout=stdout)
 
     raise Exception("Failed to start server")
 
@@ -91,7 +97,8 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
+                           stdout=sys.stdout):
     """
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
@@ -134,10 +141,34 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
             # This will terminate all child processes of the scoring process
             pgrp = os.getpgid(proc.pid)
             os.killpg(pgrp, signal.SIGTERM)
-        print("captured output of the scoring process")
-        print("-------------------------STDOUT------------------------------")
-        print(proc.stdout.read())
-        print("==============================================================")
+        print("captured output of the scoring process", file=stdout)
+        print("-------------------------STDOUT------------------------------", file=stdout)
+        print(proc.stdout.read(), file=stdout)
+        print("==============================================================", file=stdout)
+
+
+@pytest.fixture(scope='module', autouse=True)
+def set_boto_credentials():
+    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
+    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+
+
+@pytest.fixture
+def mock_s3_bucket():
+    """
+    Creates a mock S3 bucket using moto
+
+    :return: The name of the mock bucket
+    """
+    import boto3
+    import moto
+
+    with moto.mock_s3():
+        bucket_name = "mock-bucket"
+        s3_client = boto3.client("s3")
+        s3_client.create_bucket(Bucket=bucket_name)
+        yield bucket_name
 
 
 class safe_edit_yaml(object):

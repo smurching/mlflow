@@ -14,7 +14,6 @@ import logging
 import time
 
 import base64
-import boto3
 import yaml
 import mlflow
 import mlflow.version
@@ -41,7 +40,9 @@ DEPLOYMENT_MODES = [
     DEPLOYMENT_MODE_REPLACE
 ]
 
-IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
+IMAGE_NAME_ENV_VAR = "MLFLOW_SAGEMAKER_DEPLOY_IMG_URL"
+# Deprecated as of MLflow 1.0.
+DEPRECATED_IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
@@ -119,9 +120,9 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
     The image is built locally and it requires Docker to run.
 
     :param name: Docker image name.
-    :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the
-                        image will install MLflow from this directory. Otherwise, it will install
-                        MLflow from pip.
+    :param mlflow_home: (Optional) Path to a local copy of the MLflow GitHub repository.
+                        If specified, the image will install MLflow from this directory.
+                        If None, it will install MLflow from pip.
     """
     with TempDir() as tmp:
         cwd = tmp.path()
@@ -175,6 +176,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
     :param image: Docker image name.
     """
+    import boto3
     _logger.info("Pushing image to ECR")
     client = boto3.client("sts")
     caller_id = client.get_caller_identity()
@@ -241,8 +243,9 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
-    :param image: Name of the Docker image to be used. if not specified, uses a
-                  publicly-available pre-built image.
+    :param image_url: URL of the ECR-hosted docker image the model should be deployed into, produced
+                      by ``mlflow sagemaker build-and-push-container``. This parameter may also
+                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
@@ -314,6 +317,7 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                             native SageMaker APIs or the AWS console. If `synchronous` is False,
                             this parameter is ignored.
     """
+    import boto3
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
@@ -476,6 +480,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                             APIs or the AWS console. If `synchronous` is False, this parameter
                             is ignored.
     """
+    import boto3
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
@@ -586,8 +591,15 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
 
 
 def _get_default_image_url(region_name):
+    import boto3
     env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
     if env_img:
+        return env_img
+
+    env_img = os.environ.get(DEPRECATED_IMAGE_NAME_ENV_VAR)
+    if env_img:
+        _logger.warning("Environment variable '%s' is deprecated, please use '%s' instead",
+                        DEPRECATED_IMAGE_NAME_ENV_VAR, IMAGE_NAME_ENV_VAR)
         return env_img
 
     ecr_client = boto3.client("ecr", region_name=region_name)
@@ -597,6 +609,7 @@ def _get_default_image_url(region_name):
 
 
 def _get_account_id():
+    import boto3
     sess = boto3.Session()
     sts_client = sess.client("sts")
     identity_info = sts_client.get_caller_identity()
@@ -608,6 +621,7 @@ def _get_assumed_role_arn():
     """
     :return: ARN of the user's current IAM role.
     """
+    import boto3
     sess = boto3.Session()
     sts_client = sess.client("sts")
     identity_info = sts_client.get_caller_identity()
@@ -619,6 +633,7 @@ def _get_assumed_role_arn():
 
 
 def _get_default_s3_bucket(region_name):
+    import boto3
     # create bucket if it does not exist
     sess = boto3.Session()
     account_id = _get_account_id()
@@ -668,6 +683,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
     :param s3_client: A boto3 client for S3.
     :return: S3 path of the uploaded artifact.
     """
+    import boto3
     sess = boto3.Session(region_name=region_name)
     with TempDir() as tmp:
         model_data_file = tmp.path("model.tar.gz")
