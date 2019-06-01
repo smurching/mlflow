@@ -1,8 +1,19 @@
 package org.mlflow.artifacts;
 
 import java.net.URI;
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.conf.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.mlflow.tracking.creds.MlflowHostCredsProvider;
+import org.mlflow.api.proto.Service.FileInfo;
+
 
 public class DbfsArtifactRepository implements ArtifactRepository {
     private static final Logger logger = LoggerFactory.getLogger(DbfsArtifactRepository.class);
@@ -14,10 +25,12 @@ public class DbfsArtifactRepository implements ArtifactRepository {
      * need to implement the REST repo in Java, we might as well refactor this.
      */
     static boolean isDbfsRegisteredWithHdfs() {
-        path = new Path("dbfs:/");
+        Configuration conf = new Configuration();
         try {
+            FileSystem fs = FileSystem.get(conf);
+            Path path = new Path("dbfs:/");
             FileSystem.get(conf).makeQualified(path);
-        } catch (Exception e) {
+        } catch (IOException e) {
             return false;
         }
         return true;
@@ -25,12 +38,54 @@ public class DbfsArtifactRepository implements ArtifactRepository {
 
     private ArtifactRepository delegate;
 
-    public DbfsArtifactRepository(String artifactUri) {
-        if (DbfsArtifactRepository.isRegisteredWithHdfs()) {
-            this.delegate = DbfsHdfsArtifactRepository(artifactUri);
+    public DbfsArtifactRepository(String artifactUri, String runId, MlflowHostCredsProvider hostCredsProvider) {
+        if (DbfsArtifactRepository.isDbfsRegisteredWithHdfs()) {
+            this.delegate = new DbfsHdfsArtifactRepository(artifactUri);
         } else {
-            this.delegate = DbfsRestArtifactRepository(artifactUri);
+            // this.delegate = new DbfsRestArtifactRepository(artifactUri, hostCredsProvider);
+            this.delegate = new CliBasedArtifactRepository(artifactUri, runId, hostCredsProvider);
         }
+    }
+
+    @Override
+    public void logArtifact(File localFile) {
+        this.delegate.logArtifact(localFile);
+    }
+
+    @Override
+    public void logArtifact(File localFile, String artifactPath) {
+        this.delegate.logArtifact(localFile, artifactPath);
+    }
+
+    @Override
+    public void logArtifacts(File localDir) {
+        this.delegate.logArtifacts(localDir);
+    }
+
+
+    @Override
+    public void logArtifacts(File localDir, String artifactPath) {
+        this.delegate.logArtifacts(localDir, artifactPath);
+    }
+
+    @Override
+    public List<FileInfo> listArtifacts() {
+        return this.delegate.listArtifacts();
+    }
+
+    @Override
+    public List<FileInfo> listArtifacts(String artifactPath) {
+        return this.delegate.listArtifacts(artifactPath);
+    }
+
+    @Override
+    public File downloadArtifacts() {
+        return this.delegate.downloadArtifacts();
+    }
+
+    @Override
+    public File downloadArtifacts(String artifactPath) {
+        return this.delegate.downloadArtifacts(artifactPath);
     }
 
 

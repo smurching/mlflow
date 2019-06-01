@@ -1,6 +1,7 @@
 package org.mlflow.artifacts;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 import org.mlflow.api.proto.Service.FileInfo;
@@ -89,7 +90,7 @@ public interface ArtifactRepository {
   /**
    * Returns a local directory containing *all* artifacts within the run's artifact directory.
    * Note that this will download the entire directory path, and so may be expensive if
-   * the directory a lot of data.
+   * the directory contains a lot of data.
    */
   File downloadArtifacts();
 
@@ -104,7 +105,7 @@ public interface ArtifactRepository {
    *   </pre>
    *
    * Note that this will download the entire subdirectory path, and so may be expensive if
-   * the subdirectory a lot of data.
+   * the subdirectory contains a lot of data.
    *
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.

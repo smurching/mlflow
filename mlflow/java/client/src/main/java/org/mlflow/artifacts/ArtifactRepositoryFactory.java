@@ -4,8 +4,8 @@ import java.net.URI;
 
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
-import org.apache.hadoop.fs.FileSystem
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 
 public class ArtifactRepositoryFactory {
@@ -21,7 +21,7 @@ public class ArtifactRepositoryFactory {
       // Probably need the host creds provider for the rest-backed repo
       String artifactUri = baseArtifactUri.toString();
 //      return new DbfsArtifactRepository(baseArtifactUri.toString(), runId, hostCredsProvider);
-      return new DbfsArtifactRepository(baseArtifactUri.toString() hostCredsProvider);
+      return new DbfsArtifactRepository(baseArtifactUri.toString(), runId, hostCredsProvider);
 
     }
     return new CliBasedArtifactRepository(baseArtifactUri.toString(), runId, hostCredsProvider);
