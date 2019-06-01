@@ -16,6 +16,7 @@ public class ArtifactRepositoryFactory {
   }
 
   public ArtifactRepository getArtifactRepository(URI baseArtifactUri, String runId) {
+    System.out.println("Got base artifact URI " + baseArtifactUri.getScheme() == "dbfs");
     if (baseArtifactUri.getScheme() == "dbfs") {
       // TODO(sid) figure out how this translation to a single artifact URI is supposed to work.
       // Probably need the host creds provider for the rest-backed repo

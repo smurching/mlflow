@@ -12,6 +12,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import org.slf4j.Logger;
@@ -61,7 +62,7 @@ public class DbfsHdfsArtifactRepository implements ArtifactRepository {
         }
         // TODO(sid) write file to DBFS using HDFS APIs
         String strippedArtifactPath;
-        if (artifactPath.charAt(0) == '/') {
+        if (artifactPath != null && artifactPath.charAt(0) == '/') {
             strippedArtifactPath = artifactPath.substring(1);
         } else {
             strippedArtifactPath = artifactPath;
@@ -112,14 +113,16 @@ public class DbfsHdfsArtifactRepository implements ArtifactRepository {
 
     /**
      * Download a single artifact into the specified directory, returning a File corresponding
-     * to the downloaded artifact
+     * to the downloaded artifact. The file is downloaded with the same basename into the
+     * specified directory.
+     * @param remotePath Path of the file to download
+     * @param localDestDir Destination directory
      */
     private File downloadArtifact(Path remotePath, Path localDestDir) {
-        // TODO: kinda  jank to do HDFS relpath computations using java.nio.file.Paths
-        String relPath = Paths.get(this.artifactUri).relativize(Paths.get(remotePath.toString())).toString();
-        Path dstPath = new Path(localDestDir, relPath);
+        String basename = new File(remotePath.toString()).getName();
+        Path dstPath = new Path(localDestDir, basename);
         try {
-            fs.copyToLocalFile(remotePath, dstPath);
+            fs.copyToLocalFile(false, remotePath, dstPath, true);
         } catch (IOException e) {
             throw new MlflowClientException(getUnexpectedErrorSuffix(
                     "Failed to download artifact from " + remotePath.toString()), e);
@@ -129,8 +132,11 @@ public class DbfsHdfsArtifactRepository implements ArtifactRepository {
 
     @Override
     public File downloadArtifacts(String artifactPath) {
+        Path remotePath = new Path(this.artifactUri);
+        if (artifactPath != null) {
+            remotePath = new Path(remotePath, artifactPath);
+        }
         try {
-            Path remotePath = new Path(new Path(this.artifactUri), artifactPath);
             Path localDestDir = new Path(Files.createTempDirectory(null).toUri());
             if (!fs.isDirectory(remotePath))  {
                 return downloadArtifact(remotePath, localDestDir);
@@ -138,14 +144,24 @@ public class DbfsHdfsArtifactRepository implements ArtifactRepository {
             RemoteIterator<LocatedFileStatus> iter = fs.listFiles(remotePath, true);
             while (iter.hasNext()) {
                 LocatedFileStatus fileStatus = iter.next();
-                if (fileStatus.isDirectory()) {
-                    downloadArtifact(fileStatus.getPath(), localDestDir);
+                if (!fileStatus.isDirectory()) {
+                    // TODO: kinda jank to do HDFS relpath computations using java.nio.file.Paths
+                    // Get the path of the file relative to the target artifact dir
+                    java.nio.file.Path parentPath =
+                            Paths.get(fileStatus.getPath().toString()).getParent();
+                    String relPath =
+                            Paths.get(remotePath.toString()).relativize(parentPath).toString();
+                    Path localDestPath = localDestDir;
+                    if (relPath.length() > 0) {
+                        localDestPath = new Path(localDestDir, relPath);
+                    }
+                    downloadArtifact(fileStatus.getPath(), localDestPath);
                 }
             }
             return new File(localDestDir.toUri());
         } catch (IOException e) {
             throw new MlflowClientException(getUnexpectedErrorSuffix(
-                    "Failed to download artifacts from " + artifactPath), e);
+                    "Failed to download artifacts from " + remotePath.toString()), e);
         }
     }
 
@@ -156,13 +172,30 @@ public class DbfsHdfsArtifactRepository implements ArtifactRepository {
 
     @Override
     public List<Service.FileInfo> listArtifacts(String artifactPath) {
-        return new ArrayList<Service.FileInfo>();
-//        checkMlflowAccessible();
-//        String tag = "list artifacts in " + getTargetIdentifier(artifactPath);
-//        List<String> command = appendRunIdArtifactPath(
-//                Lists.newArrayList("artifacts", "list"), runId, artifactPath);
-//        String jsonOutput = forkMlflowProcess(command, tag);
-//        return parseFileInfos(jsonOutput);
+        // TODO also handle leading slash like in logArtifact?
+        Path remotePath = new Path(this.artifactUri);
+        if (artifactPath != null) {
+            remotePath = new Path(remotePath, artifactPath);
+        }
+        List<Service.FileInfo> fileInfos = new ArrayList<>();
+        FileStatus[] statuses;
+        try {
+            statuses = fs.listStatus(remotePath);
+        } catch (IOException e) {
+            throw new MlflowClientException(getUnexpectedErrorSuffix(
+                    "Failed to list artifacts in " + artifactPath), e);
+        }
+        for (FileStatus fileStatus: statuses) {
+            Service.FileInfo.Builder builder = Service.FileInfo.newBuilder();
+            // TODO: kinda jank to do HDFS relpath computations using java.nio.file.Paths
+            String relPath = Paths.get(this.artifactUri).relativize(
+                    Paths.get(fileStatus.getPath().toString())).toString();
+            builder.setPath(relPath);
+            builder.setIsDir(fileStatus.isDirectory());
+            builder.setFileSize(fileStatus.getLen());
+            fileInfos.add(builder.build());
+        }
+        return fileInfos;
     }
 
     @Override

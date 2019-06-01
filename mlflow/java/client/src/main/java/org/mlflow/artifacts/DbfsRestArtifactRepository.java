@@ -12,10 +12,9 @@ public class DbfsRestArtifactRepository {
     private static final Logger logger = LoggerFactory.getLogger(DbfsRestArtifactRepository.class);
     private String artifactUri;
 
-    public DbfsRestArtifactRepository(String artifactUri, MlflowHostCredsProvider hostCredsProvider) {
+    public DbfsRestArtifactRepository(String artifactUri,
+                                      MlflowHostCredsProvider hostCredsProvider) {
         this.artifactUri = artifactUri;
     }
-
-
 
 }

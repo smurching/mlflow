@@ -20,17 +20,17 @@ public class DbfsArtifactRepository implements ArtifactRepository {
 
     /**
      * Temporary method - to be pulled out into DbfsArtifactRepository, which should then handle
-     * delegation to a CliBasedArtifactRpeository (or REST based repo, if we want to stay pure-Java),
-     * when we do Java plugins to keep code changes minimal for now. Actually, since we probably
-     * need to implement the REST repo in Java, we might as well refactor this.
+     * delegation to a CliBasedArtifactRpeository (or REST based repo, if we want to stay
+     * pure-Java), when we do Java plugins to keep code changes minimal for now. Actually, since we
+     * probably need to implement the REST repo in Java, we might as well refactor this.
      */
-    static boolean isDbfsRegisteredWithHdfs() {
+    public static boolean isDbfsRegisteredWithHdfs() {
         Configuration conf = new Configuration();
         try {
-            FileSystem fs = FileSystem.get(conf);
             Path path = new Path("dbfs:/");
             FileSystem.get(conf).makeQualified(path);
         } catch (IOException e) {
+            logger.info(e.toString());
             return false;
         }
         return true;
@@ -38,7 +38,8 @@ public class DbfsArtifactRepository implements ArtifactRepository {
 
     private ArtifactRepository delegate;
 
-    public DbfsArtifactRepository(String artifactUri, String runId, MlflowHostCredsProvider hostCredsProvider) {
+    public DbfsArtifactRepository(String artifactUri, String runId,
+                                  MlflowHostCredsProvider hostCredsProvider) {
         if (DbfsArtifactRepository.isDbfsRegisteredWithHdfs()) {
             this.delegate = new DbfsHdfsArtifactRepository(artifactUri);
         } else {
