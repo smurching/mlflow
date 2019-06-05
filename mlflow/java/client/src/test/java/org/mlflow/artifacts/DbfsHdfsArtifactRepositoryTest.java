@@ -131,9 +131,6 @@ public class DbfsHdfsArtifactRepositoryTest {
     // Download subpath/subberpath, and confirm that we have just the grandchild.
     Path subberpathArtifacts = repo.downloadArtifacts("subpath/subberpath").toPath();
     Assert.assertEquals(grandchildContents, readFile(subberpathArtifacts.resolve("grandchild")));
-    for (String res: subberpathArtifacts.toFile().list()) {
-      System.out.println("@SID: " + res);
-    }
     Assert.assertEquals(subberpathArtifacts.toFile().list(), new String[] {"grandchild"});
   }
 
