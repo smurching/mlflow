@@ -25,9 +25,9 @@ import org.mlflow.tracking.TestClientProvider;
 import org.mlflow.tracking.creds.BasicMlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCreds;
 
-public class DbfsHdfsArtifactRepositoryTest {
+public class DbfsFuseArtifactRepositoryTest {
   private static final Logger logger = LoggerFactory.getLogger(
-    DbfsHdfsArtifactRepositoryTest.class);
+    DbfsFuseArtifactRepositoryTest.class);
 
   private final TestClientProvider testClientProvider = new TestClientProvider();
 
@@ -43,11 +43,11 @@ public class DbfsHdfsArtifactRepositoryTest {
     testClientProvider.cleanupClientAndServer();
   }
 
-  private DbfsHdfsArtifactRepository newRepo() {
+  private DbfsFuseArtifactRepository newRepo() {
     RunInfo runInfo = client.createRun();
     logger.info("Created run with id=" + runInfo.getRunUuid() + " and artifactUri=" +
       runInfo.getArtifactUri());
-    return new DbfsHdfsArtifactRepository(runInfo.getArtifactUri());
+    return new DbfsFuseArtifactRepository(runInfo.getArtifactUri());
   }
 
   @Test

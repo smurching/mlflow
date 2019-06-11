@@ -10,7 +10,7 @@ from mlflow.utils.hadoop_filesystem import _HadoopFileSystem
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
-class DbfsHdfsArtifactRepository(ArtifactRepository):
+class DbfsFuseArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on DBFS, leveraging HDFS APIs to read/write from DBFS.
 
@@ -19,7 +19,7 @@ class DbfsHdfsArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri):
         cleaned_artifact_uri = artifact_uri.rstrip('/')
-        super(DbfsHdfsArtifactRepository, self).__init__(cleaned_artifact_uri)
+        super(DbfsFuseArtifactRepository, self).__init__(cleaned_artifact_uri)
         # NOTE: if we ever need to support databricks profiles different from that set for
         #  tracking, we could pass in the databricks profile name into this class.
         self.get_host_creds = _get_host_creds_from_default_store()

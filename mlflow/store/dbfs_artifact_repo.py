@@ -5,7 +5,7 @@ import json
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.store.dbfs_hdfs_artifact_repo import DbfsHdfsArtifactRepository
+from mlflow.store.dbfs_hdfs_artifact_repo import DbfsFuseArtifactRepository
 from mlflow.store.rest_store import RestStore
 from mlflow.tracking import utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
@@ -29,7 +29,7 @@ class DbfsArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         cleaned_artifact_uri = artifact_uri.rstrip('/')
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)
-        self.repo = DbfsHdfsArtifactRepository(cleaned_artifact_uri)\
+        self.repo = DbfsFuseArtifactRepository(cleaned_artifact_uri)\
             if DbfsArtifactRepository.is_dbfs_registered_with_hdfs()\
             else DbfsRestArtifactRepository(cleaned_artifact_uri)
 

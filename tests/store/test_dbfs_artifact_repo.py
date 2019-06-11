@@ -237,7 +237,7 @@ def artifact_dir(tmpdir):
 @pytest.fixture()
 def force_dbfs_hdfs_repo(artifact_dir):
     with mock.patch('mlflow.store.dbfs_artifact_repo.DbfsArtifactRepository.is_dbfs_registered_with_hdfs') as is_dbfs_registered_with_hdfs_mock,\
-            mock.patch('mlflow.store.dbfs_hdfs_artifact_repo.DbfsHdfsArtifactRepository._get_dbfs_path') as _get_dbfs_path_mock:
+            mock.patch('mlflow.store.dbfs_hdfs_artifact_repo.DbfsFuseArtifactRepository._get_dbfs_path') as _get_dbfs_path_mock:
         from pyspark.sql import SparkSession
         spark = SparkSession.builder.getOrCreate()
         is_dbfs_registered_with_hdfs_mock.return_value = True
@@ -249,7 +249,7 @@ def force_dbfs_hdfs_repo(artifact_dir):
         yield
 
 
-class TestDbfsHdfsArtifactRepository(object):
+class TestDbfsFuseArtifactRepository(object):
     @pytest.mark.parametrize("artifact_path", [
         None,
         'output',
@@ -380,16 +380,3 @@ class TestDbfsHdfsArtifactRepository(object):
             _, kwargs_call_2 = chronological_download_calls[1]
             assert kwargs_call_1['endpoint'] == '/dbfs/test/dir'
             assert kwargs_call_2['endpoint'] == '/dbfs/test/a.txt'
-
-
-def test_get_host_creds_from_default_store_file_store():
-    with mock.patch('mlflow.tracking.utils._get_store') as get_store_mock:
-        get_store_mock.return_value = FileStore()
-        with pytest.raises(MlflowException):
-            _get_host_creds_from_default_store()
-
-
-def test_get_host_creds_from_default_store_rest_store():
-    with mock.patch('mlflow.tracking.utils._get_store') as get_store_mock:
-        get_store_mock.return_value = RestStore(lambda: MlflowHostCreds('http://host'))
-        assert isinstance(_get_host_creds_from_default_store()(), MlflowHostCreds)

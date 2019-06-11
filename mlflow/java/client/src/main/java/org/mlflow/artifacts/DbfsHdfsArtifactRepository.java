@@ -22,8 +22,8 @@ import org.mlflow.api.proto.Service;
 import org.mlflow.tracking.MlflowClientException;
 
 
-public class DbfsHdfsArtifactRepository implements ArtifactRepository {
-    private static final Logger logger = LoggerFactory.getLogger(DbfsHdfsArtifactRepository.class);
+public class DbfsFuseArtifactRepository implements ArtifactRepository {
+    private static final Logger logger = LoggerFactory.getLogger(DbfsFuseArtifactRepository.class);
     private FileSystem fs;
     private String artifactUri;
 
@@ -32,7 +32,7 @@ public class DbfsHdfsArtifactRepository implements ArtifactRepository {
                 "GitHub issue at https://github.com/mlflow/mlflow/issues";
     }
 
-    public DbfsHdfsArtifactRepository(String artifactUri) {
+    public DbfsFuseArtifactRepository(String artifactUri) {
         this.artifactUri = artifactUri;
         Configuration conf = new Configuration();
         try {

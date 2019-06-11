@@ -41,7 +41,7 @@ public class DbfsArtifactRepository implements ArtifactRepository {
     public DbfsArtifactRepository(String artifactUri, String runId,
                                   MlflowHostCredsProvider hostCredsProvider) {
         if (DbfsArtifactRepository.isDbfsRegisteredWithHdfs()) {
-            this.delegate = new DbfsHdfsArtifactRepository(artifactUri);
+            this.delegate = new DbfsFuseArtifactRepository(artifactUri);
         } else {
             // this.delegate = new DbfsRestArtifactRepository(artifactUri, hostCredsProvider);
             this.delegate = new CliBasedArtifactRepository(artifactUri, runId, hostCredsProvider);
