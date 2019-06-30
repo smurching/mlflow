@@ -110,14 +110,12 @@ def main():
             sorted_prs[label].append(pr_num)
     for k in sorted_prs.keys():
         assert k in ["rn/feature", "rn/breaking-change", "rn/bug-fix", "rn/documentation", "rn/none", "no-label"], k
-
     def pr_list_text(categories, title):
         prs = []
         for cat in categories:
             prs += sorted_prs[cat]
         return title + " (%d)\n\n" % len(prs) + \
                "\n".join([format_oneline(original_info[pr_num]) for pr_num in prs]) + "\n"
-
     # rn/breaking-change
     breaking_text = pr_list_text(["rn/breaking-change"], "Breaking changes:")
 
@@ -140,8 +138,7 @@ def main():
                  small_list_text + "\n"
 
     # no label PRs
-    no_label_text = pr_list_text("no-label", "The following PRs need to be categorized:")
-
+    no_label_text = pr_list_text(["no-label"], "The following PRs need to be categorized:")
     # PRs with multiple labels - let the release notes author know
     multiple_text = "** The following PRs were found to have multiple release notes labels: " + \
                     ", ".join([str(pr_num) for pr_num in multilabel_prs]) + "\n"
