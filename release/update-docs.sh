@@ -30,17 +30,22 @@ pip install -e .
 # TODO: are test reqs necessary?
 # pip install -r test-requirements-txt
 pushd docs
-# Install Maven & R
-# sudo apt install maven
-# echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list
-# sudo apt-get update
-# sudo apt-get install r-base r-base-dev curl libcurl4-openssl-dev texlive-latex-base libxml2-dev --yes --allow-unauthenticated
-# # Install a recent version of pandoc
-# TEMP_DEB="$(mktemp)" &&
-# wget -O "$TEMP_DEB" 'https://github.com/jgm/pandoc/releases/download/2.7.2/pandoc-2.7.2-1-amd64.deb' &&
-# sudo dpkg -i "$TEMP_DEB"
-# rm -f "$TEMP_DEB"
-make html
+# TODO update this
+if [ "$PUBLISH_R_DOCS" == "true"]; then
+ echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list
+ sudo apt-get update
+ sudo apt-get install r-base r-base-dev curl libcurl4-openssl-dev texlive-latex-base libxml2-dev --yes --allow-unauthenticated
+ # Install a recent version of pandoc
+ TEMP_DEB="$(mktemp)" &&
+ wget -O "$TEMP_DEB" 'https://github.com/jgm/pandoc/releases/download/2.7.2/pandoc-2.7.2-1-amd64.deb' &&
+ sudo dpkg -i "$TEMP_DEB"
+ rm -f "$TEMP_DEB"
+ make rdocs
+fi;
+
+sudo apt install maven
+make javadocs
+make rsthtml
 popd
 popd
 
@@ -58,4 +63,9 @@ sudo bundle install
 sudo gem install s3_website
 JEKYLL_ENV=production bundle exec jekyll build
 s3_website push --dry-run
+
+# TODO update this
+if [ "$PUBLISH_PUBLIC" === "true" ]; then
+  s3_website push
+fi
 popd
