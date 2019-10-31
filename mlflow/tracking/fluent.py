@@ -12,7 +12,9 @@ import time
 import logging
 import numpy as np
 import pandas as pd
+import warnings
 
+import mlflow
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
@@ -20,7 +22,8 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import env
-from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
+from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id,\
+    is_in_databricks_job
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 
@@ -29,11 +32,32 @@ _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
+_setting_active_exp = False
+
+
+class NoExperimentIdSpecifiedWarning(Warning):
+    pass
+
+
+warnings.simplefilter('once', NoExperimentIdSpecifiedWarning)
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
 
 _logger = logging.getLogger(__name__)
+
+
+def _get_client():
+    global _active_experiment_id, _setting_active_exp
+    if is_in_databricks_job() and mlflow.get_tracking_uri().startswith("databricks")\
+            and _active_experiment_id is None and not _setting_active_exp:
+        warnings.warn('No active experiment was specified - silencing MLflow logging within '
+                      'this job run. Please call mlflow.set_experiment() to enable logging to '
+                      'the Databricks-hosted server. Logging will be re-enabled within the '
+                      'current job run if mlflow.set_experiment is called later on.',
+                      NoExperimentIdSpecifiedWarning, stacklevel=2)
+        return MlflowClient("./mlruns")
+    return MlflowClient()
 
 
 def set_experiment(experiment_name):
@@ -43,19 +67,24 @@ def set_experiment(experiment_name):
 
     :param experiment_name: Name of experiment to be activated.
     """
-    client = MlflowClient()
-    experiment = client.get_experiment_by_name(experiment_name)
-    exp_id = experiment.experiment_id if experiment else None
-    if exp_id is None:  # id can be 0
-        print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
-        exp_id = client.create_experiment(experiment_name)
-    elif experiment.lifecycle_stage == LifecycleStage.DELETED:
-        raise MlflowException(
-            "Cannot set a deleted experiment '%s' as the active experiment."
-            " You can restore the experiment, or permanently delete the "
-            " experiment to create a new one." % experiment.name)
-    global _active_experiment_id
-    _active_experiment_id = exp_id
+    global _setting_active_exp
+    _setting_active_exp = True
+    try:
+        client = _get_client()
+        experiment = client.get_experiment_by_name(experiment_name)
+        exp_id = experiment.experiment_id if experiment else None
+        if exp_id is None:  # id can be 0
+            print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+            exp_id = client.create_experiment(experiment_name)
+        elif experiment.lifecycle_stage == LifecycleStage.DELETED:
+            raise MlflowException(
+                "Cannot set a deleted experiment '%s' as the active experiment."
+                " You can restore the experiment, or permanently delete the "
+                " experiment to create a new one." % experiment.name)
+        global _active_experiment_id
+        _active_experiment_id = exp_id
+    finally:
+        _setting_active_exp = False
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
@@ -118,7 +147,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         existing_run_id = None
     if existing_run_id:
         _validate_run_id(existing_run_id)
-        active_run_obj = MlflowClient().get_run(existing_run_id)
+        active_run_obj = _get_client().get_run(existing_run_id)
         # Check to see if experiment_id from environment matches experiment_id from set_experiment()
         if (_active_experiment_id is not None and
                 _active_experiment_id != active_run_obj.info.experiment_id):
@@ -147,7 +176,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
 
         tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = MlflowClient().create_run(
+        active_run_obj = _get_client().create_run(
             experiment_id=exp_id_for_run,
             tags=tags
         )
@@ -160,7 +189,7 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
     """End an active MLflow run (if there is one)."""
     global _active_run_stack
     if len(_active_run_stack) > 0:
-        MlflowClient().set_terminated(_active_run_stack[-1].info.run_id, status)
+        _get_client().set_terminated(_active_run_stack[-1].info.run_id, status)
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         _active_run_stack.pop()
@@ -188,7 +217,7 @@ def get_run(run_id):
     :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                 raises an exception.
     """
-    return MlflowClient().get_run(run_id)
+    return _get_client().get_run(run_id)
 
 
 def log_param(key, value):
@@ -199,7 +228,7 @@ def log_param(key, value):
     :param value: Parameter value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_param(run_id, key, value)
+    _get_client().log_param(run_id, key, value)
 
 
 def set_tag(key, value):
@@ -210,7 +239,7 @@ def set_tag(key, value):
     :param value: Tag value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().set_tag(run_id, key, value)
+    _get_client().set_tag(run_id, key, value)
 
 
 def delete_tag(key):
@@ -220,7 +249,7 @@ def delete_tag(key):
     :param key: Name of the tag
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().delete_tag(run_id, key)
+    _get_client().delete_tag(run_id, key)
 
 
 def log_metric(key, value, step=None):
@@ -234,7 +263,7 @@ def log_metric(key, value, step=None):
     :param step: Metric step (int). Defaults to zero if unspecified.
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
+    _get_client().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
 
 
 def log_metrics(metrics, step=None):
@@ -252,7 +281,7 @@ def log_metrics(metrics, step=None):
     run_id = _get_or_start_run().info.run_id
     timestamp = int(time.time() * 1000)
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
-    MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
+    _get_client().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
 
 def log_params(params):
@@ -265,7 +294,7 @@ def log_params(params):
     """
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
-    MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+    _get_client().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
 def set_tags(tags):
@@ -278,7 +307,7 @@ def set_tags(tags):
     """
     run_id = _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
-    MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
+    _get_client().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
 def log_artifact(local_path, artifact_path=None):
@@ -289,7 +318,7 @@ def log_artifact(local_path, artifact_path=None):
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_artifact(run_id, local_path, artifact_path)
+    _get_client().log_artifact(run_id, local_path, artifact_path)
 
 
 def log_artifacts(local_dir, artifact_path=None):
@@ -300,7 +329,7 @@ def log_artifacts(local_dir, artifact_path=None):
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
+    _get_client().log_artifacts(run_id, local_dir, artifact_path)
 
 
 def get_experiment(experiment_id):
@@ -310,7 +339,7 @@ def get_experiment(experiment_id):
     :param experiment_id: The experiment ID returned from ``create_experiment``.
     :return: :py:class:`mlflow.entities.Experiment`
     """
-    return MlflowClient().get_experiment(experiment_id)
+    return _get_client().get_experiment(experiment_id)
 
 
 def get_experiment_by_name(name):
@@ -320,7 +349,7 @@ def get_experiment_by_name(name):
     :param name: The experiment name.
     :return: :py:class:`mlflow.entities.Experiment`
     """
-    return MlflowClient().get_experiment_by_name(name)
+    return _get_client().get_experiment_by_name(name)
 
 
 def create_experiment(name, artifact_location=None):
@@ -332,7 +361,7 @@ def create_experiment(name, artifact_location=None):
                               If not provided, the server picks an appropriate default.
     :return: Integer ID of the created experiment.
     """
-    return MlflowClient().create_experiment(name, artifact_location)
+    return _get_client().create_experiment(name, artifact_location)
 
 
 def delete_experiment(experiment_id):
@@ -341,7 +370,7 @@ def delete_experiment(experiment_id):
 
     :param experiment_id: The experiment ID returned from ``create_experiment``.
     """
-    MlflowClient().delete_experiment(experiment_id)
+    _get_client().delete_experiment(experiment_id)
 
 
 def delete_run(run_id):
@@ -350,7 +379,7 @@ def delete_run(run_id):
 
     :param run_id: Unique identifier for the run to delete.
     """
-    MlflowClient().delete_run(run_id)
+    _get_client().delete_run(run_id)
 
 
 def get_artifact_uri(artifact_path=None):
@@ -465,10 +494,10 @@ def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_result
     while(len(all_runs) < max_results):
         runs_to_get = max_results-len(all_runs)
         if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
-            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+            runs = _get_client().search_runs(experiment_ids, filter_string, run_view_type,
                                               runs_to_get, order_by, next_page_token)
         else:
-            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+            runs = _get_client().search_runs(experiment_ids, filter_string, run_view_type,
                                               NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
         all_runs.extend(runs)
         if hasattr(runs, 'token') and runs.token != '' and runs.token is not None:
@@ -487,7 +516,7 @@ def _get_or_start_run():
 def _get_experiment_id_from_env():
     experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
     if experiment_name is not None:
-        exp = MlflowClient().get_experiment_by_name(experiment_name)
+        exp = _get_client().get_experiment_by_name(experiment_name)
         return exp.experiment_id if exp else None
     return env.get_env(_EXPERIMENT_ID_ENV_VAR)
 

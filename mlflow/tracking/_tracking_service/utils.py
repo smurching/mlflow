@@ -10,7 +10,7 @@ from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds, is_in_databricks_job
 from mlflow.utils.uri import get_db_profile_from_uri
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
