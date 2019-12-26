@@ -16,7 +16,6 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
-_REPL_ID_JAVA_PACKAGE = "org.mlflow.spark.autologging.databricks"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
 
 _logger = logging.getLogger(__name__)
@@ -65,12 +64,6 @@ def _get_spark_major_version(sc):
 
 def _get_java_package():
     sc = SparkContext.getOrCreate()
-    spark_major_version = _get_spark_major_version(sc)
-    # TODO: will JAR be available in ML runtime for MLflow projects? If so, should we broaden this
-    # check to not just look for notebooks?
-    if spark_major_version is not None and spark_major_version == 2 and \
-            is_in_databricks_notebook():
-        return _REPL_ID_JAVA_PACKAGE
     return _JAVA_PACKAGE
 
 
@@ -123,7 +116,7 @@ def autolog():
                 "before attempting to enable autologging")
         # We know SparkContext exists here already, so get it
         sc = SparkContext.getOrCreate()
-        if _get_spark_major_version(sc) < 3:
+        if _get_spark_major_version(sc) < 3 and not is_in_databricks_notebook():
             raise MlflowException(
                 "Spark autologging unsupported for Spark versions < 3")
         gw = active_session.sparkContext._gateway
