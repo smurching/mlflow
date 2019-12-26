@@ -20,30 +20,10 @@ object ReflectionUtils {
   def isInstanceOf(obj: Any, className: String): Boolean = {
     val clazz = getClass.getClassLoader.loadClass(className)
     clazz.isInstance(obj)
-//    val classOpt = try {
-//        Option(rm.staticClass(className))
-//    } catch {
-//      case e: scala.ScalaReflectionException =>
-////        logger.info(s"Exception while checking if object $obj is of type $className. " +
-////          s"Exception:\n${ExceptionUtils.serializeException(e)}")
-//        None
-//    }
-//    // If class is loadable, check whether object has same type, otherwise return false
-//    classOpt.exists { c =>
-//      val desiredType = c.toType
-//      val objectTypeTag = ru.typeTag[T]
-//      println(s"Desired type ${desiredType}, actual type ${objectTypeTag.tpe}, object classname ${obj.getClass.getCanonicalName}")
-//      objectTypeTag.tpe <:< desiredType
-//    }
   }
 
 
   def getField(obj: Any, fieldName: String): Any = {
-//    val instanceMirror = rm.reflect(obj)
-//    val objTypeTag = ru.typeTag[T]
-//    val desiredField = objTypeTag.tpe.decl(ru.TermName(fieldName)).asTerm
-//    val field = instanceMirror.reflectField(desiredField)
-//    field.get.asInstanceOf[T]
     val declaredFields = obj.getClass.getDeclaredFields
     val field = declaredFields.find(_.getName == fieldName).getOrElse {
       throw new RuntimeException(s"Unable to get field '$fieldName' in object with class " +
