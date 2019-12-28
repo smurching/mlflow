@@ -10,13 +10,16 @@ import scala.collection.mutable
 
 /**
  * Implementation of the SparkListener interface used to detect Spark datasource reads.
- * and notify subscribers.
+ * and notify subscribers. Used in REPL-ID aware environments (e.g. Databricks)
  */
-class DatabricksSparkDataSourceListener(
+class ReplAwareSparkDataSourceListener(
     publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher)
   extends SparkDataSourceListener(publisher) {
   private val executionIdToReplId = mutable.Map[Long, String]()
 
+  override protected def getDatasourceAttributeExtractor: DatasourceAttributeExtractorBase = {
+    ReplAwareDatasourceAttributeExtractor
+  }
 
   private[autologging] def getProperties(event: SparkListenerJobStart): Map[String, String] = {
     Option(event.properties).map(_.asScala.toMap).getOrElse(Map.empty)

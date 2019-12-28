@@ -1,19 +1,9 @@
 package org.mlflow.spark.autologging
 
-import java.io.File
-import java.nio.file.{Files, Path, Paths}
-import java.util.UUID
-
-import org.apache.spark.mlflow.MlflowSparkAutologgingTestUtils
-import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
-import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
-import org.apache.spark.sql.{Row, SparkSession}
-import org.mockito.Matchers.any
-import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuite, Matchers}
+import org.scalatest.FunSuite
 
 object TestObject {
-
+  def myMethod: String = "hi"
 }
 
 abstract class TestAbstractClass {
@@ -25,13 +15,7 @@ class RealClass extends TestAbstractClass {
   def subclassMethod(x: Int): Int = x * x
 }
 
-class ReflectionUtilsSuite extends FunSuite with Matchers {
-
-  test("Can use reflection to determine if object is instance of class") {
-    val obj = new RealClass()
-    assert(ReflectionUtils.isInstanceOf(obj, "org.mlflow.spark.autologging.TestAbstractClass"))
-    assert(ReflectionUtils.isInstanceOf(obj, "org.mlflow.spark.autologging.RealClass"))
-  }
+class ReflectionUtilsSuite extends FunSuite {
 
   test("Can get private field of an object via reflection") {
     val obj = new RealClass()
@@ -46,6 +30,9 @@ class ReflectionUtilsSuite extends FunSuite with Matchers {
     assert(res0 == 9)
   }
 
-
-
+  test("Can get Scala object and call methods via reflection") {
+    val obj = ReflectionUtils.getScalaObjectByName("org.mlflow.spark.autologging.TestObject")
+    val res = ReflectionUtils.callMethod(obj, "myMethod", Seq.empty).asInstanceOf[String]
+    assert(res == "hi")
+  }
 }

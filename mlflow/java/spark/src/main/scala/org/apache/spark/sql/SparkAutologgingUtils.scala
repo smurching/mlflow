@@ -2,7 +2,6 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.execution.ui._
 import org.apache.spark.sql.execution.QueryExecution
-import org.mlflow.spark.autologging.ReflectionUtils
 
 
 /**
@@ -11,6 +10,6 @@ import org.mlflow.spark.autologging.ReflectionUtils
  */
 object SparkAutologgingUtils {
   def getQueryExecution(sqlExecution: SparkListenerSQLExecutionEnd): QueryExecution = {
-    ReflectionUtils.getField(sqlExecution, "qe").asInstanceOf[QueryExecution]
+    sqlExecution.qe
   }
 }
