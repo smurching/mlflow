@@ -272,8 +272,12 @@ is not specified.
 
 .. code:: r
 
-   mlflow_end_run(status = c("FINISHED", "FAILED", "KILLED"),
-     end_time = NULL, run_id = NULL, client = NULL)
+   mlflow_end_run(
+     status = c("FINISHED", "FAILED", "KILLED"),
+     end_time = NULL,
+     run_id = NULL,
+     client = NULL
+   )
 
 .. _arguments-7:
 
@@ -314,8 +318,7 @@ Attempts to obtain the active experiment if both ``experiment_id`` and
 
 .. code:: r
 
-   mlflow_get_experiment(experiment_id = NULL, name = NULL,
-     client = NULL)
+   mlflow_get_experiment(experiment_id = NULL, name = NULL, client = NULL)
 
 .. _arguments-8:
 
@@ -490,8 +493,10 @@ Gets a list of all experiments.
 
 .. code:: r
 
-   mlflow_list_experiments(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
-     "ALL"), client = NULL)
+   mlflow_list_experiments(
+     view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+     client = NULL
+   )
 
 .. _arguments-13:
 
@@ -526,8 +531,11 @@ all runs under the specified experiment.
 
 .. code:: r
 
-   mlflow_list_run_infos(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
-     "ALL"), experiment_id = NULL, client = NULL)
+   mlflow_list_run_infos(
+     run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+     experiment_id = NULL,
+     client = NULL
+   )
 
 .. _arguments-14:
 
@@ -640,6 +648,8 @@ following are examples of valid model uris:
 -  ``file:relative/path/to/local/model``
 -  ``s3://my_bucket/path/to/model``
 -  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+-  ``models:/<model_name>/<model_version>``
+-  ``models:/<model_name>/<stage>``
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
@@ -654,8 +664,7 @@ Logs a specific file or directory as an artifact for a run.
 
 .. code:: r
 
-   mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL,
-     client = NULL)
+   mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL, client = NULL)
 
 .. _arguments-17:
 
@@ -709,8 +718,13 @@ request), partial data may be written.
 
 .. code:: r
 
-   mlflow_log_batch(metrics = NULL, params = NULL, tags = NULL,
-     run_id = NULL, client = NULL)
+   mlflow_log_batch(
+     metrics = NULL,
+     params = NULL,
+     tags = NULL,
+     run_id = NULL,
+     client = NULL
+   )
 
 .. _arguments-18:
 
@@ -763,8 +777,14 @@ historical metric values along two axes: timestamp and step.
 
 .. code:: r
 
-   mlflow_log_metric(key, value, timestamp = NULL, step = NULL,
-     run_id = NULL, client = NULL)
+   mlflow_log_metric(
+     key,
+     value,
+     timestamp = NULL,
+     step = NULL,
+     run_id = NULL,
+     client = NULL
+   )
 
 .. _arguments-19:
 
@@ -1087,8 +1107,14 @@ endpoint will be removed in a future version of mlflow.
 
 .. code:: r
 
-   mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-     daemonized = FALSE, browse = !daemonized, ...)
+   mlflow_rfunc_serve(
+     model_uri,
+     host = "127.0.0.1",
+     port = 8090,
+     daemonized = FALSE,
+     browse = !daemonized,
+     ...
+   )
 
 .. _arguments-27:
 
@@ -1136,6 +1162,8 @@ following are examples of valid model uris:
 -  ``file:relative/path/to/local/model``
 -  ``s3://my_bucket/path/to/model``
 -  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+-  ``models:/<model_name>/<model_version>``
+-  ``models:/<model_name>/<stage>``
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
@@ -1169,10 +1197,18 @@ https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
 
 .. code:: r
 
-   mlflow_run(uri = ".", entry_point = NULL, version = NULL,
-     parameters = NULL, experiment_id = NULL, experiment_name = NULL,
-     backend = NULL, backend_config = NULL, no_conda = FALSE,
-     storage_dir = NULL)
+   mlflow_run(
+     uri = ".",
+     entry_point = NULL,
+     version = NULL,
+     parameters = NULL,
+     experiment_id = NULL,
+     experiment_name = NULL,
+     backend = NULL,
+     backend_config = NULL,
+     no_conda = FALSE,
+     storage_dir = NULL
+   )
 
 .. _arguments-28:
 
@@ -1262,8 +1298,7 @@ model types.
 .. code:: r
 
    list(list("mlflow_save_model"), list("crate"))(model, path, ...)
-   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path,
-     conda_env = NULL, ...)
+   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, conda_env = NULL, ...)
    mlflow_save_model(model, path, ...)
 
 .. _arguments-29:
@@ -1290,9 +1325,13 @@ Metric and Param keys.
 
 .. code:: r
 
-   mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
-     "DELETED_ONLY", "ALL"), experiment_ids = NULL, order_by = list(),
-     client = NULL)
+   mlflow_search_runs(
+     filter = NULL,
+     run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+     experiment_ids = NULL,
+     order_by = list(),
+     client = NULL
+   )
 
 .. _arguments-30:
 
@@ -1340,9 +1379,14 @@ Wrapper for ``mlflow server``.
 
 .. code:: r
 
-   mlflow_server(file_store = "mlruns", default_artifact_root = NULL,
-     host = "127.0.0.1", port = 5000, workers = 4,
-     static_prefix = NULL)
+   mlflow_server(
+     file_store = "mlruns",
+     default_artifact_root = NULL,
+     host = "127.0.0.1",
+     port = 5000,
+     workers = 4,
+     static_prefix = NULL
+   )
 
 .. _arguments-31:
 
@@ -1381,8 +1425,7 @@ metadata that can be updated.
 
 .. code:: r
 
-   mlflow_set_experiment_tag(key, value, experiment_id = NULL,
-     client = NULL)
+   mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
 .. _arguments-32:
 
@@ -1428,8 +1471,11 @@ provided name. Returns the ID of the active experiment.
 
 .. code:: r
 
-   mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
-     artifact_location = NULL)
+   mlflow_set_experiment(
+     experiment_name = NULL,
+     experiment_id = NULL,
+     artifact_location = NULL
+   )
 
 .. _arguments-33:
 
@@ -1548,8 +1594,13 @@ can be provided.
 
 .. code:: r
 
-   mlflow_start_run(run_id = NULL, experiment_id = NULL,
-     start_time = NULL, tags = NULL, client = NULL)
+   mlflow_start_run(
+     run_id = NULL,
+     experiment_id = NULL,
+     start_time = NULL,
+     tags = NULL,
+     client = NULL
+   )
 
 .. _arguments-37:
 
@@ -1653,37 +1704,3 @@ Examples
    # launch mlflow ui for existing mlflow server
    mlflow_set_tracking_uri("http://tracking-server:5000")
    mlflow_ui()
-
-``mlflow-package``
-==================
-
-mlflow: Interface to ‘MLflow’
-
-R interface to ‘MLflow’, open source platform for the complete machine
-learning life cycle, see https://mlflow.org/. This package supports
-installing ‘MLflow’, tracking experiments, creating and running
-projects, and saving and serving models.
-
-Seealso
--------
-
-Useful links:
-
--  https://github.com/mlflow/mlflow
-
--  Report bugs at https://github.com/mlflow/mlflow/issues
-
-Author
-------
-
-Maintainer : Matei Zaharia matei@databricks.com
-
-Authors:
-
--  Javier Luraschi javier@rstudio.com
-
--  Kevin Kuo kevin.kuo@rstudio.com (
-   `ORCID <https://orcid.org/0000-0001-7803-7901>`__ )
-
-Other contributors:
-

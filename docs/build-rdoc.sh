@@ -13,5 +13,6 @@ Rscript -e 'devtools::install_github("https://github.com/smurching/Rd2md", ref =
 Rscript -e 'install.packages("rmarkdown", repos = "https://cloud.r-project.org")'
 rm -rf man
 Rscript -e "roxygen2::roxygenise()"
+rm man/mlflow-package.Rd
 Rscript document.R
 popd
