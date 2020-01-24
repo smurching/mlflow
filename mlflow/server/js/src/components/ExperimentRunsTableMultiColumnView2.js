@@ -21,6 +21,8 @@ import _ from 'lodash';
 import { Spinner } from './Spinner';
 import LocalStorageUtils from '../utils/LocalStorageUtils';
 import { AgGridPersistedState } from '../sdk/MlflowLocalStorageMessages';
+import { Menu, Dropdown, Icon } from 'antd';
+
 
 const PARAM_PREFIX = '$$$param$$$';
 const METRIC_PREFIX = '$$$metric$$$';
@@ -64,6 +66,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     filter: true,
     suppressMenu: true,
     suppressMovable: true,
+  };
+
+  state = {
+    hoveredRowIdx: -1,
   };
 
   // A map of framework(React) specific custom components.
@@ -251,6 +257,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       loadingMore,
       visibleTagKeyList,
     } = this.props;
+    const hoveredRowIdx = this.state.hoveredRowIdx;
     const { getNameValueMapFromList } = ExperimentRunsTableMultiColumnView2;
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
@@ -285,6 +292,8 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         ...getNameValueMapFromList(params, paramKeyList, PARAM_PREFIX),
         ...getNameValueMapFromList(metrics, metricKeyList, METRIC_PREFIX),
         ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
+        hoveredRowIdx,
+        idx,
       };
     });
 
@@ -428,6 +437,19 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           loadingOverlayComponentParams={{ showImmediately: true }}
           isFullWidthCell={isFullWidthCell}
           isRowSelectable={this.isRowSelectable}
+          gridOptions={{
+            onCellMouseOver: ({rowIndex, data}) => {
+              if (data.hasExpander) {
+                console.log("Setting state to " + rowIndex);
+                this.setState({hoveredRowIdx: rowIndex});
+              }
+            },
+            onCellMouseOut: ({rowIndex, data}) => {
+              // if (data.hasExpander) {
+              //   this.setState({hoveredRowIdx: -1});
+              // }
+            },
+          }}
         />
       </div>
     );
@@ -455,9 +477,30 @@ function DateCellRenderer(props) {
     expanderOpen,
     childrenIds,
     onExpand,
+    hoveredRowIdx,
+    idx,
   } = props.data;
+  // https://ant.design/components/dropdown/
+  const menu = <Menu>
+    <Menu.Item key="0">
+      <a href="http://www.alipay.com/">Select all</a>
+    </Menu.Item>
+    <Menu.Item key="1">
+      <a href="http://www.taobao.com/">Select child runs</a>
+    </Menu.Item>
+  </Menu>;
+  const dropdown = <Dropdown overlay={menu} trigger={['click']}>
+    <a className="ant-dropdown-link" href="#">
+      <Icon type="down" />
+    </a>
+  </Dropdown>;
+
+  console.log("got row index " + idx + " , hover idex: " + hoveredRowIdx);
   return (
     <div>
+      {hasExpander && hoveredRowIdx === idx ?
+          dropdown : null
+      }
       {hasExpander ? (
         <div
           onClick={() => {
@@ -482,7 +525,7 @@ function DateCellRenderer(props) {
     </div>
   );
 }
-DateCellRenderer.propTypes = { data: PropTypes.object };
+DateCellRenderer.propTypes = { data: PropTypes.object, api: PropTypes.object };
 
 function SourceCellRenderer(props) {
   const { tags, queryParams } = props.data;
