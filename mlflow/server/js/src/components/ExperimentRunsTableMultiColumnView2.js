@@ -265,7 +265,8 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       runsExpanded,
     });
 
-    const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
+    const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds },
+                                 rowIndex) => {
       const tags = tagsList[idx];
       const params = paramsList[idx];
       const metrics = metricsList[idx];
@@ -293,7 +294,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         ...getNameValueMapFromList(metrics, metricKeyList, METRIC_PREFIX),
         ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
         hoveredRowIdx,
-        idx,
+        rowIndex,
       };
     });
 
@@ -478,7 +479,7 @@ function DateCellRenderer(props) {
     childrenIds,
     onExpand,
     hoveredRowIdx,
-    idx,
+    rowIndex,
   } = props.data;
   // https://ant.design/components/dropdown/
   const menu = <Menu>
@@ -495,10 +496,12 @@ function DateCellRenderer(props) {
     </a>
   </Dropdown>;
 
-  console.log("got row index " + idx + " , hover idex: " + hoveredRowIdx);
+  if (rowIndex === hoveredRowIdx) {
+    console.log("got row index " + rowIndex + " , hover idex: " + hoveredRowIdx);
+  }
   return (
     <div>
-      {hasExpander && hoveredRowIdx === idx ?
+      {hasExpander && hoveredRowIdx === rowIndex ?
           dropdown : null
       }
       {hasExpander ? (
