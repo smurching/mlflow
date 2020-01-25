@@ -502,7 +502,7 @@ function DateCellRenderer(props) {
   return (
     <div>
       {hasExpander && hoveredRowIdx === rowIndex ?
-          dropdown : null
+          dropdown : <span style={{ paddingLeft: 12 }} />
       }
       {hasExpander ? (
         <div
