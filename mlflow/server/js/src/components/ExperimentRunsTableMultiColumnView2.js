@@ -22,6 +22,7 @@ import { Spinner } from './Spinner';
 import LocalStorageUtils from '../utils/LocalStorageUtils';
 import { AgGridPersistedState } from '../sdk/MlflowLocalStorageMessages';
 import { Menu, Dropdown, Icon } from 'antd';
+import EmptyIfUnhovered from "./EmptyIfUnhovered";
 
 
 const PARAM_PREFIX = '$$$param$$$';
@@ -438,19 +439,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           loadingOverlayComponentParams={{ showImmediately: true }}
           isFullWidthCell={isFullWidthCell}
           isRowSelectable={this.isRowSelectable}
-          gridOptions={{
-            onCellMouseOver: ({rowIndex, data}) => {
-              if (data.hasExpander) {
-                console.log("Setting state to " + rowIndex);
-                this.setState({hoveredRowIdx: rowIndex});
-              }
-            },
-            onCellMouseOut: ({rowIndex, data}) => {
-              // if (data.hasExpander) {
-              //   this.setState({hoveredRowIdx: -1});
-              // }
-            },
-          }}
         />
       </div>
     );
@@ -478,8 +466,6 @@ function DateCellRenderer(props) {
     expanderOpen,
     childrenIds,
     onExpand,
-    hoveredRowIdx,
-    rowIndex,
   } = props.data;
   // https://ant.design/components/dropdown/
   const menu = <Menu>
@@ -496,13 +482,12 @@ function DateCellRenderer(props) {
     </a>
   </Dropdown>;
 
-  if (rowIndex === hoveredRowIdx) {
-    console.log("got row index " + rowIndex + " , hover idex: " + hoveredRowIdx);
-  }
+  const placeholder = <span style={{paddingLeft: 12}}/>;
   return (
     <div>
-      {hasExpander && hoveredRowIdx === rowIndex ?
-          dropdown : <span style={{ paddingLeft: 12 }} />
+      {hasExpander ?
+        <EmptyIfUnhovered hoveredChildren={dropdown} unhoveredChildren={placeholder}/> :
+        placeholder
       }
       {hasExpander ? (
         <div
