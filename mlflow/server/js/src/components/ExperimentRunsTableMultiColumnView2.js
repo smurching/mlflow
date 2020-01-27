@@ -479,6 +479,7 @@ function DateCellRenderer(props) {
   // https://ant.design/components/dropdown/
   const menu = <Menu>
     <Menu.Item key="0" onClick={() => {
+      debugger;
       const newSelectedRuns = [runInfo.run_uuid].concat(childrenIds).concat(selectedRunsSet);
       onSelectionChange(newSelectedRuns);
     }}>
@@ -493,7 +494,7 @@ function DateCellRenderer(props) {
   </Menu>;
   const dropdown = <span style={{paddingRight: 4}}>
     <Dropdown overlay={menu} trigger={['click']}>
-      <a className="ant-dropdown-link" href="#">
+      <a className="ant-dropdown-link">
         <Icon type="down" />
       </a>
     </Dropdown>
