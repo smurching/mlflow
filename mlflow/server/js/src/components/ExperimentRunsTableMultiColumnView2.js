@@ -22,7 +22,7 @@ import { Spinner } from './Spinner';
 import LocalStorageUtils from '../utils/LocalStorageUtils';
 import { AgGridPersistedState } from '../sdk/MlflowLocalStorageMessages';
 import { Menu, Dropdown, Icon } from 'antd';
-import EmptyIfUnhovered from "./EmptyIfUnhovered";
+import HoverableSpan from "./HoverableSpan";
 
 
 const PARAM_PREFIX = '$$$param$$$';
@@ -35,7 +35,7 @@ const EMPTY_CELL_PLACEHOLDER = '-';
 
 export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.number,
+    experimentId: PropTypes.string,
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     // List of list of params in all the visible runs
     paramsList: PropTypes.arrayOf(Array).isRequired,
@@ -257,6 +257,8 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       nextPageToken,
       loadingMore,
       visibleTagKeyList,
+      runsSelected,
+      onSelectionChange,
     } = this.props;
     const hoveredRowIdx = this.state.hoveredRowIdx;
     const { getNameValueMapFromList } = ExperimentRunsTableMultiColumnView2;
@@ -296,6 +298,8 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
         hoveredRowIdx,
         rowIndex,
+        runsSelected,
+        onSelectionChange,
       };
     });
 
@@ -466,53 +470,64 @@ function DateCellRenderer(props) {
     expanderOpen,
     childrenIds,
     onExpand,
+    runsSelected,
+    onSelectionChange,
   } = props.data;
+
+  const selectedRunsSet = new Set(Object.keys(runsSelected));
+
   // https://ant.design/components/dropdown/
   const menu = <Menu>
-    <Menu.Item key="0">
-      <a href="http://www.alipay.com/">Select all</a>
+    <Menu.Item key="0" onClick={() => {
+      const newSelectedRuns = [runInfo.run_uuid].concat(childrenIds).concat(selectedRunsSet);
+      onSelectionChange(newSelectedRuns);
+    }}>
+      <div>Select parent and child runs</div>
     </Menu.Item>
-    <Menu.Item key="1">
-      <a href="http://www.taobao.com/">Select child runs</a>
+    <Menu.Item key="1" onClick={() => {
+      const newSelectedRuns = childrenIds.concat(selectedRunsSet);
+      onSelectionChange(newSelectedRuns);
+    }}>
+      <div>Select child runs</div>
     </Menu.Item>
   </Menu>;
-  const dropdown = <Dropdown overlay={menu} trigger={['click']}>
-    <a className="ant-dropdown-link" href="#">
-      <Icon type="down" />
-    </a>
-  </Dropdown>;
-
-  const placeholder = <span style={{paddingLeft: 12}}/>;
-  return (
-    <div>
-      {hasExpander ?
-        <EmptyIfUnhovered hoveredChildren={dropdown} unhoveredChildren={placeholder}/> :
-        placeholder
-      }
+  const dropdown = <span style={{paddingRight: 4}}>
+    <Dropdown overlay={menu} trigger={['click']}>
+      <a className="ant-dropdown-link" href="#">
+        <Icon type="down" />
+      </a>
+    </Dropdown>
+  </span>;
+  const placeholder = <span style={{paddingLeft: 8, paddingRight: 8}}/>;
+  const renderFunc = (hovered) => {
+    return <div>
+      {hasExpander && hovered ? dropdown : placeholder}
       {hasExpander ? (
-        <div
-          onClick={() => {
-            onExpand(runInfo.run_uuid, childrenIds);
-          }}
-          key={'Expander-' + runInfo.run_uuid}
-          style={{ paddingRight: 8, display: 'inline' }}
-        >
-          <i
-            className={`ExperimentView-expander far fa-${expanderOpen ? 'minus' : 'plus'}-square`}
-          />
-        </div>
+          <div
+              onClick={() => {
+                onExpand(runInfo.run_uuid, childrenIds);
+              }}
+              key={'Expander-' + runInfo.run_uuid}
+              style={{ paddingRight: 8, display: 'inline' }}
+          >
+            <i
+              className={`ExperimentView-expander far fa-${expanderOpen ? 'minus' : 'plus'}-square`}
+            />
+          </div>
       ) : (
-        <span style={{ paddingLeft: 18 }} />
+          <span style={{ paddingLeft: 18 }} />
       )}
       <Link
-        to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}
-        style={{ paddingLeft: isParent ? 0 : 16 }}
+          to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}
+          style={{ paddingLeft: isParent ? 0 : 16 }}
       >
         {ExperimentViewUtil.getRunStatusIcon(runInfo.status)} {Utils.formatTimestamp(startTime)}
       </Link>
-    </div>
-  );
+    </div>;
+  };
+  return <HoverableSpan renderFunc={renderFunc}/>;
 }
+
 DateCellRenderer.propTypes = { data: PropTypes.object, api: PropTypes.object };
 
 function SourceCellRenderer(props) {
