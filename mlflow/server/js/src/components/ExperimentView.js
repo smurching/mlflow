@@ -64,6 +64,7 @@ export class ExperimentView extends Component {
     this.renderNoteSection = this.renderNoteSection.bind(this);
     this.handleSubmitEditNote = this.handleSubmitEditNote.bind(this);
     this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
+    this.handleMultiColumnViewSelectionChange = this.handleMultiColumnViewSelectionChange.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
@@ -191,6 +192,7 @@ export class ExperimentView extends Component {
   static getDerivedStateFromProps(nextProps, prevState) {
     // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
     // prop)
+    console.log("In ExperimentView.getDerivedStateFromProps");
     const newRunsSelected = {};
     nextProps.runInfos.forEach((rInfo) => {
       const prevRunSelected = prevState.runsSelected[rInfo.run_uuid];
@@ -198,6 +200,7 @@ export class ExperimentView extends Component {
         newRunsSelected[rInfo.run_uuid] = prevRunSelected;
       }
     });
+    console.log("Previous runs selected UUIDs " + Object.keys(prevState.runsSelected).length + ", current runs selected " + Object.keys(newRunsSelected).length);
     const { searchInput, paramKeyFilter, metricKeyFilter, lifecycleFilter } = nextProps;
     const paramKeyFilterInput = paramKeyFilter.getFilterString();
     const metricKeyFilterInput = metricKeyFilter.getFilterString();
@@ -340,6 +343,7 @@ export class ExperimentView extends Component {
       paramKeyList,
       metricKeyList,
     } = this.props;
+    console.log("In ExperimentView.render()");
     const { experiment_id, name, artifact_location } = experiment;
     const { persistedState } = this.state;
     const { unbaggedParams, unbaggedMetrics, categorizedUncheckedKeys } = persistedState;
@@ -636,8 +640,10 @@ export class ExperimentView extends Component {
 
   // Special handler for ag-grid selection change event from multi-column view
   handleMultiColumnViewSelectionChange = (selectedRunUuids) => {
+    console.log("Setting " + selectedRunUuids.length + " runs to be selected: " + selectedRunUuids);
+    // debugger;
     const runsSelected = {};
-    selectedRunUuids.forEach((runUuid) => runsSelected[runUuid] = true);
+    selectedRunUuids.reverse().forEach((runUuid) => runsSelected[runUuid] = true);
     this.setState({ runsSelected });
   };
 
@@ -868,6 +874,7 @@ export const mapStateToProps = (state, ownProps) => {
         return rInfo.lifecycle_stage === 'deleted';
       }
     });
+  // console.log("Got " + runInfos.length + " run infos");
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();

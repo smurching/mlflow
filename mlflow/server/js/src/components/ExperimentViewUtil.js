@@ -438,6 +438,7 @@ export default class ExperimentViewUtil {
     }
   }
 
+  // Get metadata corresponding to visible rows
   static getRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {

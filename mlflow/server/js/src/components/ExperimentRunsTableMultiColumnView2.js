@@ -351,6 +351,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   applyRowSelectionFromProps() {
     if (!this.gridApi) return;
     const { runsSelected } = this.props;
+    console.log("In ExperimentRunStableMultiColumnView2, calling applyRowSelectionFromProps on " + Object.keys(runsSelected).length + " rows");
     const selectedRunsSet = new Set(Object.keys(runsSelected));
 
     this.gridApi.deselectAll();
@@ -474,19 +475,18 @@ function DateCellRenderer(props) {
     onSelectionChange,
   } = props.data;
 
-  const selectedRunsSet = new Set(Object.keys(runsSelected));
+  const selectedRuns = Object.keys(runsSelected);
 
   // https://ant.design/components/dropdown/
   const menu = <Menu>
     <Menu.Item key="0" onClick={() => {
-      debugger;
-      const newSelectedRuns = [runInfo.run_uuid].concat(childrenIds).concat(selectedRunsSet);
+      const newSelectedRuns = [runInfo.run_uuid].concat(childrenIds).concat(selectedRuns);
       onSelectionChange(newSelectedRuns);
     }}>
       <div>Select parent and child runs</div>
     </Menu.Item>
     <Menu.Item key="1" onClick={() => {
-      const newSelectedRuns = childrenIds.concat(selectedRunsSet);
+      const newSelectedRuns = childrenIds.concat(selectedRuns);
       onSelectionChange(newSelectedRuns);
     }}>
       <div>Select child runs</div>
