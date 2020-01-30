@@ -316,9 +316,9 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
   handleSelectionChange = (event) => {
     // Avoid triggering event handlers while we are applying row selections from props
-    if (this.applyingRowSelectionFromProps) {
-      return;
-    }
+    // if (this.applyingRowSelectionFromProps) {
+       // return;
+    // }
     const { onSelectionChange } = this.props;
     if (onSelectionChange) {
       const selectedRunUuids = [];
@@ -330,10 +330,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       // Do not trigger callback if the selection is not changed. This check helps improving
       // rendering performance especially after applyRowSelectionFromProps where a large number of
       // run selection event gets triggered because there is no batch select API.
-      if (!_.isEqual(selectedRunUuids, this.prevSelectRunUuids)) {
+      if (!_.isEqual(selectedRunUuids, this.prevSelectRunUuids) && !this.applyingRowSelectionFromProps) {
         onSelectionChange(selectedRunUuids);
-        this.prevSelectRunUuids = selectedRunUuids;
       }
+      this.prevSelectRunUuids = selectedRunUuids;
     }
   };
 
@@ -364,12 +364,17 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     // row3.setSelected(true);
     // ag-grid will fire `selectionChange` event 3 times with the same selection [row1, row2, row3]
     // So, we need to be aware of this and not re-render when selection stays the same.
-    this.gridApi.forEachNode((node) => {
-      const { runInfo } = node.data;
-      if (runInfo && selectedRunsSet.has(runInfo.getRunUuid())) {
-        node.setSelected(true);
-      }
-    });
+    this.applyingRowSelectionFromProps = true;
+    try {
+      this.gridApi.forEachNode((node) => {
+        const {runInfo} = node.data;
+        if (runInfo && selectedRunsSet.has(runInfo.getRunUuid())) {
+          node.setSelected(true);
+        }
+      });
+    } finally {
+      this.applyingRowSelectionFromProps = false;
+    }
   }
 
   handleColumnSizeRefit() {
