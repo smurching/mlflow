@@ -441,6 +441,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           onColumnGroupOpened={this.persistGridState}
           suppressRowClickSelection
           suppressScrollOnNewData // retain scroll position after nested run toggling operations
+          suppressFieldDotNotation
           enableCellTextSelection
           frameworkComponents={frameworkComponents}
           fullWidthCellRendererFramework={FullWidthCellRenderer}
