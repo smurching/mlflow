@@ -40,3 +40,16 @@ def test_databricks_notebook_run_context_tags_nones():
             MLFLOW_SOURCE_NAME: None,
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
         }
+
+
+def test_databricks_notebook_run_context_set_experiment_hook_doesnt_throw():
+    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook") as in_notebook_mock:
+        in_notebook_mock.return_value = True
+        DatabricksNotebookRunContext().set_experiment_hook(experiment_id="a", experiment_name="b")
+
+
+
+def test_databricks_notebook_run_context_start_run_hook_doesnt_throw():
+    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook") as in_notebook_mock:
+        in_notebook_mock.return_value = True
+        DatabricksNotebookRunContext().start_run_hook(experiment_id="a", run_id="abc")

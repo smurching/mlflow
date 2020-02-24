@@ -31,3 +31,9 @@ class RunContextProvider(object):
         :return: dict of tags
         """
         pass
+
+    def start_run_hook(self, experiment_id, run_id):
+        pass
+
+    def set_experiment_hook(self, experiment_id, experiment_name):
+        pass

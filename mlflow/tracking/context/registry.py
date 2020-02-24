@@ -74,3 +74,16 @@ def resolve_tags(tags=None):
         all_tags.update(tags)
 
     return all_tags
+
+
+def run_start_run_hooks(experiment_id, run_id):
+    for provider in _run_context_provider_registry:
+        if provider.in_context():
+            provider.start_run_hook(experiment_id=experiment_id, run_id=run_id)
+
+
+def run_set_experiment_hooks(experiment_id, experiment_name):
+    for provider in _run_context_provider_registry:
+        if provider.in_context():
+            provider.set_experiment_hook(
+                experiment_id=experiment_id, experiment_name=experiment_name)

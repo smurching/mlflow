@@ -56,6 +56,8 @@ def set_experiment(experiment_name):
             " experiment to create a new one." % experiment.name)
     global _active_experiment_id
     _active_experiment_id = exp_id
+    context_registry.run_set_experiment_hooks(
+        experiment_id=exp_id, experiment_name=experiment_name)
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
@@ -154,6 +156,8 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         )
 
     _active_run_stack.append(ActiveRun(active_run_obj))
+    context_registry.run_start_run_hooks(
+        experiment_id=active_run_obj.info.experiment_id, run_id=active_run_obj.info.run_id)
     return _active_run_stack[-1]
 
 
