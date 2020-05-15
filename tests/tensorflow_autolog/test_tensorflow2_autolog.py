@@ -182,7 +182,7 @@ def tf_keras_random_data_run_with_callback(random_train_data, random_one_hot_lab
     if callback == 'early':
         # min_delta is set as such to guarantee early stopping
         callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=patience,
-                                                    min_delta=99999999,
+                                                    min_delta=0.01,
                                                     restore_best_weights=restore_weights)
     else:
         callback = tf.keras.callbacks.ProgbarLogger(count_mode='samples')
@@ -226,7 +226,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 @pytest.mark.large
 @pytest.mark.parametrize('restore_weights', [True])
 @pytest.mark.parametrize('callback', ['early'])
-@pytest.mark.parametrize('patience', [11])
+@pytest.mark.parametrize('patience', [2])
 def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
