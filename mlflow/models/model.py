@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import logging
+import time
 import warnings
 
 import yaml
@@ -563,8 +564,12 @@ class Model:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
+            s = time.time()
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            print(f"Saving model took {time.time() - s} seconds")
+            s = time.time()
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
+            print(f"Logging model artifacts to tracking took {time.time() - s} seconds")
             tracking_uri = _resolve_tracking_uri()
             if (
                 tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
@@ -579,13 +584,15 @@ class Model:
                 _logger.debug("", exc_info=True)
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
-                # mlflow/tracking/_model_registry/fluent.py
+                s = time.time()
                 _register_model(
                     "runs:/{}/{}".format(run_id, mlflow_model.artifact_path),
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 )
+                print(f"Registering model version took {time.time() - s} seconds")
+
         return mlflow_model.get_model_info()
 
 
