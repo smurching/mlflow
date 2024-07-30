@@ -665,6 +665,7 @@ class UcModelRegistryStore(BaseRestStore):
             yield local_model_path
         else:
             try:
+                
                 local_model_dir = mlflow.artifacts.download_artifacts(
                     artifact_uri=source, tracking_uri=self.tracking_uri
                 )

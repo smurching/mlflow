@@ -769,6 +769,9 @@ class _LangChainModelWrapper:
             process_stream_request,
         )
 
+        # This thing just computes the final response and then streams it
+        # we need a new API if we want to support streaming incremental progress
+        # How does the scoring server know to call predict_stream vs predict_astream?
         data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
