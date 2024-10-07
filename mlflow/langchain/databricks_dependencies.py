@@ -162,8 +162,14 @@ def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Re
         )
 
     from langchain_community.chat_models import ChatDatabricks
+    chat_databricks_types = [LegacyChatDatabricks, ChatDatabricks]
+    try:
+        from langchain_databricks import ChatDatabricks as LangchainDatabricksChatDatabricks
+        chat_databricks_types.append(LangchainDatabricksChatDatabricks)
+    except ImportError:
+        pass
 
-    if isinstance(chat_model, (LegacyChatDatabricks, ChatDatabricks)):
+    if isinstance(chat_model, chat_databricks_types):
         yield DatabricksServingEndpoint(endpoint_name=chat_model.endpoint)
 
 

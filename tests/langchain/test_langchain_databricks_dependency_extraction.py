@@ -426,6 +426,14 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
     resources = list(_extract_databricks_dependencies_from_chat_model(chat_model))
     assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
 
+def test_parsing_dependency_from_langchain_databricks_databricks_chat(monkeypatch: pytest.MonkeyPatch):
+    mock_get_deploy_client = MagicMock()
+    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+    from langchain_databricks import ChatDatabricks as LangchainDatabricksChatDatabricks
+    chat_model = LangchainDatabricksChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+    resources = list(_extract_databricks_dependencies_from_chat_model(chat_model))
+    assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
+
 
 def test_parsing_dependency_from_databricks(monkeypatch: pytest.MonkeyPatch):
     mock_get_deploy_client = MagicMock()
