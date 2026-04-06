@@ -859,24 +859,27 @@ def test_get_tracer_does_not_fail_when_experiment_id_resolution_fails():
     mlflow.tracing.reset()
 
 
-def test_set_destination_uc_in_model_serving_also_registers_inference_table_processor(
+def test_set_destination_uc_in_model_serving_warns_about_trace_null(
     mock_databricks_serving_with_tracing_env,
 ):
     """
     When UCSchemaLocation is set as the trace destination in a Databricks model serving
-    environment, InferenceTableSpanProcessor must also be registered so that traces are
-    written to the in-memory buffer and returned in the serving endpoint API response.
+    environment, MLflow should warn that the endpoint will return `trace: null` because
+    the explicit destination overrides the default inference table behavior.
     """
-    with mock.patch("mlflow.tracing.provider._logger.warning"):
+    with mock.patch("mlflow.tracing.provider._logger.warning") as mock_warning:
         mlflow.tracing.set_destination(
             destination=UCSchemaLocation(catalog_name="catalog", schema_name="schema")
         )
 
+    warning_messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert any("trace: null" in msg for msg in warning_messages), (
+        f"Expected a warning about `trace: null` but got: {warning_messages}"
+    )
+
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
-    assert len(processors) == 2
+    assert len(processors) == 1
     assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
-    assert isinstance(processors[1], InferenceTableSpanProcessor)
-    assert isinstance(processors[1].span_exporter, InferenceTableSpanExporter)
 
     mlflow.tracing.reset()
