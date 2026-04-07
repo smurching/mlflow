@@ -49,6 +49,7 @@ from mlflow.tracking.fluent import (
     _get_active_model_id_global,
     _get_latest_active_run,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -207,6 +208,19 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             if trace_info is None:
                 return
             trace_id = trace_info.trace_id
+
+            # In model serving, the scoring server retrieves the trace from _TRACE_BUFFER using the
+            # Databricks request ID as key (set via set_prediction_context). Populate
+            # client_request_id here so MlflowV3SpanExporter._export_traces() can write the trace
+            # to _TRACE_BUFFER after the span ends.
+            if (
+                is_in_databricks_model_serving_environment()
+                and trace_info.client_request_id is None
+            ):
+                if client_request_id := maybe_get_request_id():
+                    with self._trace_manager.get_trace(trace_id) as manager_trace:
+                        if manager_trace is not None:
+                            manager_trace.info.client_request_id = client_request_id
 
         InMemoryTraceManager.get_instance().register_span(create_mlflow_span(span, trace_id))
 
